@@ -8,20 +8,80 @@
 #include <dsp.h>
 #include <msp430.h>
 #include <math.h>
+#include <serial.h>
 
-unsigned char counter = 0;
+unsigned char symbol_counter = 0;
+unsigned char phase_counter = 0;
+
+char current_symbol;
+unsigned char bit_index = 0; //0-7
+unsigned char current_bit;
+unsigned char prev_bit;
+
+char symbol_queue_array[128] = {0};
+struct data_queue symbol_queue = {.data = symbol_queue_array,
+                                  .head = 0,
+                                  .tail = 0,
+                                  .MAX_SIZE = 128};
+
+char tx_queue_empty = 1;
 
 /* timer interrupt */
 #pragma vector=TIMER1_B0_VECTOR
 __interrupt void TIMER1_B0_VECTOR_ISR (void) {
-    set_resistor_DAC(sine_2200(counter));
+    //grab next symbol
+    if (symbol_counter == 0) {
+        if (bit_index == 0) { //grab new symbol
+            if (queue_len(&symbol_queue) == 0) {
+                tx_queue_empty = 1;
+            }
+            else {
+                current_symbol = pop(&symbol_queue);
+            }
+        }
 
-    counter++;
-    if (counter == 22) {
-        counter = 0;
+        //grab next bit and preserve phase coherence
+        prev_bit = current_bit;
+        current_bit = (current_symbol >> (7 - bit_index)) & 0x01;
+
+        if (current_bit != prev_bit) {
+            if (current_bit == 0) { //1200 Hz
+                phase_counter = phase_2200_to_1200(phase_counter);
+            }
+            else { //2200 Hz
+                phase_counter = phase_1200_to_2200(phase_counter);
+            }
+        }
     }
 
-    TB1CCTL0 &= ~CCIFG; //reset interrupt
+    //modulate and increment counter
+    if (tx_queue_empty == 0) {
+        if (current_bit == 0) { //0 = 1200 Hz
+            set_resistor_DAC(sine_1200(phase_counter));
+        }
+        else { //1 = 2200 Hz
+            set_resistor_DAC(sine_2200(phase_counter));
+        }
+
+        symbol_counter++;
+
+        if (current_bit == 0) { //1200 Hz
+            phase_counter = (phase_counter < 21) ? (phase_counter + 1) : 0;
+        }
+        else { //2200 Hz
+            phase_counter = (phase_counter < 11) ? (phase_counter + 1) : 0;
+        }
+    }
+
+    //shift in next bit and reset counter if done
+    if (symbol_counter == 22) {
+        symbol_counter = 0;
+
+        bit_index = ((bit_index < 7) ? (bit_index + 1) : 0);
+    }
+
+    //reset interrupt
+    TB1CCTL0 &= ~CCIFG;
 }
 
 /* ADC */
@@ -70,7 +130,15 @@ void init_DSP_timer(void) {
     TB1CCTL0 = CCIE; //interrupt mode
     TB1CCR0 = 301; //sampling rate of approximately 26.4 kHz
     TB1CTL = TBSSEL__SMCLK | ID_0 | TBCLR; //fast peripheral clock, no division, clear at start
-    TB1CTL |= MC__UP | TBCLR; //enable timer
+}
+
+void enable_DSP_timer(void) {
+    TB1CTL |= MC__UP | TBCLR;
+}
+
+void disable_DSP_timer(void) {
+    TB1CTL |= TBCLR;
+    TB1CTL &= ~(0b11 << 4); //stop timer
 }
 
 /* queue functions */
@@ -95,4 +163,20 @@ char pop(struct data_queue* s) {
     s->tail = s->tail < (s->MAX_SIZE - 1) ? s->tail + 1 : 0;
 
     return temp;
+}
+
+unsigned int queue_len(struct data_queue* s) {
+    return get_queue_distance(s->tail, s->head, s->MAX_SIZE);
+}
+
+void push_string(struct data_queue* s, char* str) {
+    unsigned int i = 0;
+    char c;
+
+    c = str[i];
+    while(c != '\0') {
+        push(s, c);
+        i++;
+        c = str[i];
+    }
 }

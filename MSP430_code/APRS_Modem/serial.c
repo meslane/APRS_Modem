@@ -13,9 +13,9 @@
 #define MCLK_FREQ_MHZ 8
 
 /* UART vector */
-#pragma vector=USCI_A0_VECTOR
-__interrupt void USCI_A0_ISR(void) {
-    switch(__even_in_range(UCA0IV,USCI_UART_UCTXCPTIFG)) {
+#pragma vector=USCI_A1_VECTOR
+__interrupt void USCI_A1_ISR(void) {
+    switch(__even_in_range(UCA1IV,USCI_UART_UCTXCPTIFG)) {
         case USCI_NONE: break;
         case USCI_UART_UCRXIFG: break;
         case USCI_UART_UCTXIFG: break;
@@ -167,9 +167,45 @@ void putchars(char* msg) {
     }
 }
 
+char waitchar(void) {
+    char c;
+
+    //wait until char in buffer
+    while(!(UCA1IFG & UCRXIFG));
+    c = UCA1RXBUF;
+
+    return c;
+}
+
 void print_dec(const long long data, const unsigned char len) {
     int i;
     for (i = (len-1); i>=0; i--) {
         putchar(((data / pow(10,i)) % 10) + 48);
+    }
+}
+
+void print_binary(char b) {
+    int i;
+    for (i = 7; i >= 0; i--) {
+        if (((b >> i) & 0x01) == 0x01) {
+            putchar('1');
+        }
+        else {
+            putchar('0');
+        }
+    }
+}
+
+void print_hex(char h) {
+    int i;
+    char nibble;
+    for (i = 1; i >= 0; i--) {
+        nibble = ((h >> (4 * i)) & 0x0F);
+        if (nibble < 10) { //decimal number
+            putchar(nibble + 48);
+        }
+        else { //letter
+            putchar(nibble + 55);
+        }
     }
 }
