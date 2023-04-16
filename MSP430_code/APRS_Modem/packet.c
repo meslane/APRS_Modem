@@ -159,6 +159,16 @@ char ascii_to_num(char c) {
     }
 }
 
+void print_packet(char* packet, unsigned int len) {
+    unsigned int i;
+
+    for(i=0;i<len;i++) {
+        print_hex(packet[i]);
+        putchar(' ');
+    }
+    putchars("\n\r");
+}
+
 //convert an address string in the style of aprs.fi to the proper format for sending in a packet
 void str_to_AX_25_addr(char* output, char* str) {
     char c;
@@ -297,22 +307,85 @@ unsigned int crc_16(char *buf, unsigned int len) {
 }
 
 unsigned int stuff_bits(char* output, char* input, unsigned int len) {
-    unsigned int output_index = 0;
-    unsigned char bit_index = 7;
-    unsigned char start_bit_index;
+    unsigned int input_byte_index = 0;
+    unsigned char input_bit_index = 7;
+
+    unsigned int output_byte_index = 0;
+    unsigned char output_bit_index = 7;
 
     unsigned char ones = 0;
 
-    unsigned int i;
-    unsigned char j;
-
     char bit;
-    char output_byte;
 
-    for(i=0;i<len;i++) {
-        for(j=0;j<8;j++) {
+    unsigned int i;
 
+    output[output_byte_index] = 0x7E; //add start flag
+    output_byte_index++;
+
+    while (input_byte_index < len) { //stuff data
+        bit = ((input[input_byte_index] >> input_bit_index) & 0x01);
+        output[output_byte_index] |= (bit << output_bit_index);
+
+        if (bit == 1) {
+            ones++;
+        } else  {
+            ones = 0;
+        }
+
+        if (ones == 5) {
+            if (output_bit_index == 0) {
+                output_bit_index = 7;
+                output_byte_index++;
+            } else {
+                output_bit_index--;
+            }
+        }
+
+        if (input_bit_index == 0) {
+            input_bit_index = 7;
+            input_byte_index++;
+        } else {
+            input_bit_index--;
+        }
+
+        if (output_bit_index == 0) {
+            output_bit_index = 7;
+            output_byte_index++;
+        } else {
+            output_bit_index--;
         }
     }
 
+    for(i=0;i<8;i++) { //append end flag
+        output[output_byte_index] |= (((0x7E >> i) & 0x01) << output_bit_index);
+
+        if (output_bit_index == 0) {
+            output_bit_index = 7;
+            output_byte_index++;
+        } else {
+            output_bit_index--;
+        }
+    }
+
+    return output_byte_index + 1;
+}
+
+unsigned int make_AX_25_packet(char* output, char* dest, char* src, char* digipeaters, char* payload) {
+    unsigned int len;
+    unsigned int crc;
+
+    char packet[350];
+
+    len = generate_AX_25_packet_bytes(packet, dest, src, digipeaters, payload); //make raw packet bytes
+    flip_bit_order(packet, len); //flip bit order of non-CRC bytes
+    crc = crc_16(packet, len); //generate CRC
+
+    packet[len] = (crc >> 8) & 0xFF;
+    len++;
+    packet[len] = (crc) & 0xFF;
+    len++;
+
+    len = stuff_bits(output, packet, len);
+
+    return len;
 }

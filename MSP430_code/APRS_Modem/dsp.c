@@ -18,11 +18,11 @@ unsigned char bit_index = 0; //0-7
 unsigned char current_bit;
 unsigned char prev_bit;
 
-char symbol_queue_array[128] = {0};
+char symbol_queue_array[400] = {0};
 struct data_queue symbol_queue = {.data = symbol_queue_array,
                                   .head = 0,
                                   .tail = 0,
-                                  .MAX_SIZE = 128};
+                                  .MAX_SIZE = 400};
 
 char tx_queue_empty = 1;
 
@@ -45,7 +45,7 @@ __interrupt void TIMER1_B0_VECTOR_ISR (void) {
         current_bit = (current_symbol >> (7 - bit_index)) & 0x01;
 
         if (current_bit != prev_bit) {
-            if (current_bit == 0) { //1200 Hz
+            if (current_bit == 1) { //1200 Hz
                 phase_counter = phase_2200_to_1200(phase_counter);
             }
             else { //2200 Hz
@@ -56,7 +56,7 @@ __interrupt void TIMER1_B0_VECTOR_ISR (void) {
 
     //modulate and increment counter
     if (tx_queue_empty == 0) {
-        if (current_bit == 0) { //0 = 1200 Hz
+        if (current_bit == 1) { //0 = 1200 Hz
             set_resistor_DAC(sine_1200(phase_counter));
         }
         else { //1 = 2200 Hz
@@ -65,7 +65,7 @@ __interrupt void TIMER1_B0_VECTOR_ISR (void) {
 
         symbol_counter++;
 
-        if (current_bit == 0) { //1200 Hz
+        if (current_bit == 1) { //1200 Hz
             phase_counter = (phase_counter < 21) ? (phase_counter + 1) : 0;
         }
         else { //2200 Hz
@@ -178,5 +178,13 @@ void push_string(struct data_queue* s, char* str) {
         push(s, c);
         i++;
         c = str[i];
+    }
+}
+
+void push_packet(struct data_queue* s, char* packet, unsigned int len) {
+    unsigned int i;
+
+    for(i=0;i<len;i++) {
+        push(s, packet[i]);
     }
 }

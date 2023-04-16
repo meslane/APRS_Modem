@@ -35,5 +35,6 @@ void push(struct data_queue* s, char data);
 char pop(struct data_queue* s);
 unsigned int queue_len(struct data_queue* s);
 void push_string(struct data_queue* s, char* str);
+void push_packet(struct data_queue* s, char* packet, unsigned int len);
 
 #endif /* DSP_H_ */
