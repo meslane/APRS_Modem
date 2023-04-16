@@ -28,4 +28,14 @@ void NRZ_to_NRZI(struct bitstream* stream);
 
 unsigned int bitstream_to_bytes(struct bitstream* stream, char* bytes);
 
+char is_digit(char c);
+char ascii_to_num(char c);
+
+void str_to_AX_25_addr(char* output, char* str);
+void insert_bytes(char* src, char* dest, unsigned int index, unsigned int len);
+
+unsigned int generate_AX_25_packet_bytes(char* output, char* dest, char* src, char* digipeaters, char* payload);
+void flip_bit_order(char* data, unsigned int len);
+unsigned int crc_16(char* buf, unsigned int len);
+
 #endif /* PACKET_H_ */

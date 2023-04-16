@@ -121,7 +121,7 @@ unsigned int bitstream_to_bytes(struct bitstream* stream, char* bytes) {
 
     for (i=0;i<stream->pointer;i++) {
         if (read_bit(stream, i) == 1) {
-            byte |= (0x01 << bit_index);
+            byte |= (0x01 << (7 - bit_index));
         }
 
         if (bit_index == 7) {
@@ -141,4 +141,178 @@ unsigned int bitstream_to_bytes(struct bitstream* stream, char* bytes) {
     }
 
     return byte_index;
+}
+
+char is_digit(char c) {
+    if (c >= 0x30 && c <= 0x39) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+char ascii_to_num(char c) {
+    if (c >= 0x30 && c <= 0x39) {
+        return (c - 0x30);
+    } else {
+        return 0;
+    }
+}
+
+//convert an address string in the style of aprs.fi to the proper format for sending in a packet
+void str_to_AX_25_addr(char* output, char* str) {
+    char c;
+    char d[2];
+
+    unsigned char i = 0;
+    unsigned char j;
+
+    unsigned char SSID;
+
+    c = str[i];
+    while (c != '\0' && c != '-' && i < 6) { //check for dash or end of string if no dash
+        output[i] = (c << 1); //must left shift by one
+        i++;
+        c = str[i];
+    }
+
+    for (j=i;j<6;j++) {
+        output[j] = 0x40; //pad with spaces
+    }
+
+    if (c == '-') { //if there is an SSID
+        i++;
+        d[0] = str[i];
+        i++;
+        d[1] = str[i];
+
+        if (is_digit(d[1]) && d[0] == '1') { //if there are two digits
+            SSID = 10 + ascii_to_num(d[1]);
+        } else {
+            SSID = ascii_to_num(d[0]);
+        }
+    } else {
+        SSID = 0;
+    }
+
+    output[6] = 0x60 | ((SSID & 0x0F) << 1);
+}
+
+void insert_bytes(char* dest, char* src, unsigned int index, unsigned int len) {
+    unsigned int i;
+
+    for(i=0;i<len;i++) {
+        dest[index + i] = src[i];
+    }
+}
+
+unsigned int generate_AX_25_packet_bytes(char* output, char* dest, char* src, char* digipeaters, char* payload) {
+    unsigned int index = 0;
+    unsigned int i;
+    unsigned int j;
+    char temp[7];
+    char repeater_string[10];
+
+    //insert destination
+    str_to_AX_25_addr(temp, dest);
+    insert_bytes(output, temp, 0, 7);
+    index += 7;
+
+    //insert source
+    str_to_AX_25_addr(temp, src);
+    insert_bytes(output, temp, index, 7);
+    index += 7;
+
+    i = 0;
+    while(digipeaters[i] != '\0') { //append addresses until end of string
+        j = 0;
+        while(digipeaters[i] != ',' && digipeaters[i] != '\0') {
+            repeater_string[j] = digipeaters[i];
+            i++;
+            j++;
+        }
+
+        str_to_AX_25_addr(temp, repeater_string);
+        insert_bytes(output, temp, index, 7);
+        index += 7;
+
+        if (digipeaters[i] == ',') { //advance pointer if not end of string
+            i++;
+        }
+    }
+
+    output[index - 1] |= 0x01; //insert last address bit to indicate end of payload
+
+    //append control and PID
+    output[index] = 0x3F;
+    index++;
+    output[index] = 0xF0;
+    index++;
+
+    //append payload
+    i=0;
+    while(payload[i] != '\0') {
+        output[index] = payload[i];
+        index++;
+        i++;
+    }
+
+    return index;
+}
+
+//invert bit order per octet as is expected by AX.25
+void flip_bit_order(char* data, unsigned int len) {
+    unsigned int i;
+    unsigned char j;
+    char temp;
+
+    for(i=0;i<len;i++) {
+        temp = data[i];
+        data[i] = 0x00;
+        for(j=0;j<8;j++) {
+            data[i] |= ((temp >> (7-j)) & 0x01) << j;
+        }
+    }
+}
+
+//calculate the 16 bit CRC of a given sequence
+//adapted from: https://stackoverflow.com/a/25256043
+unsigned int crc_16(char *buf, unsigned int len) {
+    const unsigned int poly = 0x1021;
+    unsigned int crc = 0xFFFF;
+
+    while (len--) {
+        crc ^= *buf++ << 8;
+        crc = crc & 0x8000 ? (crc << 1) ^ poly : crc << 1;
+        crc = crc & 0x8000 ? (crc << 1) ^ poly : crc << 1;
+        crc = crc & 0x8000 ? (crc << 1) ^ poly : crc << 1;
+        crc = crc & 0x8000 ? (crc << 1) ^ poly : crc << 1;
+        crc = crc & 0x8000 ? (crc << 1) ^ poly : crc << 1;
+        crc = crc & 0x8000 ? (crc << 1) ^ poly : crc << 1;
+        crc = crc & 0x8000 ? (crc << 1) ^ poly : crc << 1;
+        crc = crc & 0x8000 ? (crc << 1) ^ poly : crc << 1;
+    }
+
+    return crc & 0xFFFF;
+}
+
+unsigned int stuff_bits(char* output, char* input, unsigned int len) {
+    unsigned int output_index = 0;
+    unsigned char bit_index = 7;
+    unsigned char start_bit_index;
+
+    unsigned char ones = 0;
+
+    unsigned int i;
+    unsigned char j;
+
+    char bit;
+    char output_byte;
+
+    for(i=0;i<len;i++) {
+        for(j=0;j<8;j++) {
+
+        }
+    }
+
 }

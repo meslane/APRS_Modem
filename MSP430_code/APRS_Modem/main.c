@@ -35,6 +35,10 @@ int main(void) {
 
     char bytes[4] = {0};
 
+    char output[256] = {0};
+    unsigned int len;
+    unsigned int crc;
+
     unsigned int i;
     //char c = '\0';
 	for(;;) {
@@ -65,7 +69,9 @@ int main(void) {
 
 	    tx_queue_empty = 0;
 	    */
-	    append_bitstring(&b, "1010101001010101");
+
+	    /*
+	    append_bitstring(&b, "01100010");
 	    bitstream_to_bytes(&b, bytes);
 
 	    for (i=0;i<4;i++) {
@@ -74,7 +80,34 @@ int main(void) {
 	    putchars("\n\r");
 
 	    b.pointer = 0;
+	    */
 
+	    len = generate_AX_25_packet_bytes(output, "APRS", "W6NXP", "\0", "Hello World!");
+
+	    for(i=0;i<len;i++) {
+	        print_hex(output[i]);
+	        putchar(' ');
+	    }
+	    putchars("\n\r");
+
+	    flip_bit_order(output, len);
+
+	    crc = crc_16(output, len);
+
+        output[len] = (crc >> 8) & 0xFF;
+        len++;
+        output[len] = (crc) & 0xFF;
+        len++;
+
+        for(i=0;i<len;i++) {
+            print_hex(output[i]);
+            putchar(' ');
+        }
+        putchars("\n\r");
+
+	    print_hex((crc >> 8) & 0xFF);
+	    print_hex((crc) & 0xFF);
+	    putchars("\n\r");
 	}
 	
 	return 0;
