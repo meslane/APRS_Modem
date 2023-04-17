@@ -57,6 +57,8 @@ int main(void) {
 	    }
 
 	    len = make_AX_25_packet(packet, "APRS", "W6NXP", "WIDE1-1,WIDE2-2", "Hello World! It is I_", 41, 41); //create packet
+
+	    putchars("Packet Contents:\n\r");
 	    print_packet(packet, len);
 
 	    push_packet(&symbol_queue, packet, len);
@@ -65,17 +67,6 @@ int main(void) {
         while (tx_queue_empty == 0); //wait till empty
         disable_DSP_timer();
         tx_queue_empty = 0;
-
-        putchars("\n\r");
-
-        putchars("NRZI Test\n\r");
-
-        test[0] = 0x7E;
-        test[1] = 0x7E;
-
-        NRZ_to_NRZI(test, 2);
-
-        //print_packet(test, 2);
 
         hardware_delay(20000);
 	}

@@ -37,8 +37,6 @@ __interrupt void TIMER1_B0_VECTOR_ISR (void) {
             }
             else {
                 current_symbol = pop(&symbol_queue);
-                print_hex(current_symbol);
-                putchar(' ');
             }
         }
 
@@ -118,7 +116,7 @@ void set_resistor_DAC(unsigned char val) {
 /* sampling timer */
 void init_DSP_timer(void) {
     TB1CCTL0 = CCIE; //interrupt mode
-    TB1CCR0 = 301; //sampling rate of approximately 26.4 kHz
+    TB1CCR0 = 302; //sampling rate of approximately 26.4 kHz (THIS MUST BE PRECISE - makes or breaks ability to demodulate)
     TB1CTL = TBSSEL__SMCLK | ID_0 | TBCLR; //fast peripheral clock, no division, clear at start
 }
 

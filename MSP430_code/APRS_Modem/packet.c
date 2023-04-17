@@ -42,25 +42,6 @@ void enable_FRAM_write(const char enable) {
     }
 }
 
-//convert a standard (aka NRZ) bitstream to NRZI
-//algorithm from: https://inst.eecs.berkeley.edu/~ee123/sp17/lab/lab5/Lab5_Part_C-APRS.html
-/*
-void NRZ_to_NRZI(struct bitstream* stream) {
-    char current = 1;
-
-    unsigned int i;
-    for (i=0;i<stream->pointer;i++) {
-        if (stream->bits[i] == 1) {
-            stream->bits[i] = current & 0x01;
-        }
-        else {
-            stream->bits[i] = (~current) & 0x01;
-        }
-        current = stream->bits[i] & 0x01;
-    }
-}
-*/
-
 char is_digit(char c) {
     if (c >= 0x30 && c <= 0x39) {
         return 1;
@@ -153,8 +134,9 @@ unsigned int generate_AX_25_packet_bytes(char* output, char* dest, char* src, ch
     unsigned int index = 0;
     unsigned int i;
     unsigned int j;
+    unsigned char k;
     char temp[7];
-    char repeater_string[10];
+    char repeater_string[8] = {'\0'};
 
     //insert destination
     str_to_AX_25_addr(temp, dest);
@@ -179,8 +161,13 @@ unsigned int generate_AX_25_packet_bytes(char* output, char* dest, char* src, ch
         insert_bytes(output, temp, index, 7);
         index += 7;
 
-        if (digipeaters[i] == ',') { //advance pointer if not end of string
+        if (digipeaters[i] == ',') { //advance pointer and clear repeater string if not end of string
             i++;
+
+            for (k=0;k<8;k++) {
+                repeater_string[k] = '\0';
+            }
+
         }
     }
 
@@ -344,11 +331,14 @@ unsigned int add_flags(char* output, char* input, unsigned int input_len, unsign
     }
 
     for (i=0;i<num_end_flags;i++) {
+        /*
         if ((NRZI_bit & 0x01) == 1) {
             output[output_ptr] = 0x01;
         } else {
             output[output_ptr] = 0xFE;
         }
+        */
+        output[output_ptr] = 0x01;
         output_ptr++;
     }
 
