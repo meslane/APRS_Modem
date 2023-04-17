@@ -11,7 +11,7 @@
 #include <serial.h>
 
 unsigned char symbol_counter = 0;
-unsigned char phase_counter = 0;
+unsigned int phase_counter = 0;
 
 char current_symbol;
 unsigned char bit_index = 0; //0-7
@@ -37,40 +37,30 @@ __interrupt void TIMER1_B0_VECTOR_ISR (void) {
             }
             else {
                 current_symbol = pop(&symbol_queue);
+                print_hex(current_symbol);
+                putchar(' ');
             }
         }
 
-        //grab next bit and preserve phase coherence
-        prev_bit = current_bit;
         current_bit = (current_symbol >> (7 - bit_index)) & 0x01;
-
-        if (current_bit != prev_bit) {
-            if (current_bit == 1) { //1200 Hz
-                phase_counter = phase_2200_to_1200(phase_counter);
-            }
-            else { //2200 Hz
-                phase_counter = phase_1200_to_2200(phase_counter);
-            }
-        }
     }
 
     //modulate and increment counter
     if (tx_queue_empty == 0) {
-        if (current_bit == 1) { //0 = 1200 Hz
-            set_resistor_DAC(sine_1200(phase_counter));
+        set_resistor_DAC(sine(phase_counter));
+
+        if (current_bit == 1) { //1200 Hz
+            phase_counter += 41;
         }
         else { //1 = 2200 Hz
-            set_resistor_DAC(sine_2200(phase_counter));
+            phase_counter += 75;
+        }
+
+        if (phase_counter > 899) {
+            phase_counter -= 900;
         }
 
         symbol_counter++;
-
-        if (current_bit == 1) { //1200 Hz
-            phase_counter = (phase_counter < 21) ? (phase_counter + 1) : 0;
-        }
-        else { //2200 Hz
-            phase_counter = (phase_counter < 11) ? (phase_counter + 1) : 0;
-        }
     }
 
     //shift in next bit and reset counter if done

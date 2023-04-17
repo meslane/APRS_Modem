@@ -20,4 +20,6 @@ unsigned char sine_1200(unsigned char sample);
 unsigned char phase_2200_to_1200(const unsigned char phase);
 unsigned char phase_1200_to_2200(const unsigned char phase);
 
+unsigned char sine(unsigned int index);
+
 #endif /* MATH_H_ */

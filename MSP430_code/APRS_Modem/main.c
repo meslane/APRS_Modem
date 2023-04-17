@@ -43,118 +43,20 @@ int main(void) {
 
     init_resistor_DAC();
     init_DSP_timer();
-    //enable_DSP_timer();
 
-    char stream_bits[32] = {0};
-
-    struct bitstream b ={
-                         .bits = stream_bits,
-                         .pointer = 0
-    };
-
-    char bytes[4] = {0};
-
-    char output[256] = {0};
-    char stuffed[256] = {0};
-    char packet[350] = {0};
+    char packet[400] = {0};
     unsigned int len;
-    unsigned int crc;
-
     unsigned int i;
+
+    char test[2];
+
     //char c = '\0';
 	for(;;) {
-	    /*
-	    if (tx_queue_empty == 1) {
-	        disable_DSP_timer();
-	        push_string(&symbol_queue, "Hello");
-
-	        tx_queue_empty = 0;
-	        for (i=0; i<10000; i++){}
-	        enable_DSP_timer();
+	    for (i=0;i<400;i++) {
+	        packet[i] = 0x00;
 	    }
-	    */
 
-	    /*
-	    do {
-	        c = waitchar();
-	        push(&symbol_queue, c);
-	        putchar(c);
-	    } while (c != '\r');
-
-	    putchars("\n\r");
-
-	    enable_DSP_timer();
-
-	    while (tx_queue_empty == 0); //wait till empty
-	    disable_DSP_timer();
-
-	    tx_queue_empty = 0;
-	    */
-
-	    /*
-	    append_bitstring(&b, "01100010");
-	    bitstream_to_bytes(&b, bytes);
-
-	    for (i=0;i<4;i++) {
-	        putchar(bytes[i]);
-	    }
-	    putchars("\n\r");
-
-	    b.pointer = 0;
-	    */
-	    /*
-	    putchars("Normal generation:\n\r");
-
-	    len = generate_AX_25_packet_bytes(output, "APRS", "W6NXP", "\0", "Hello World!");
-
-	    print_packet(output, len);
-
-	    flip_bit_order(output, len);
-
-	    crc = crc_16(output, len);
-
-        output[len] = (crc >> 8) & 0xFF;
-        len++;
-        output[len] = (crc) & 0xFF;
-        len++;
-
-        print_packet(output, len);
-
-        len = stuff_bits(stuffed, output, len);
-
-        print_packet(stuffed, len);
-
-        putchars("Packet Function:\n\r");
-        */
-        /*
-        len = make_AX_25_packet(output, "APRS", "W6NXP", "\0", "Hello World!");
-
-        print_packet(output, len);
-        */
-
-	    /*
-        len = generate_AX_25_packet_bytes(packet, "APRS", "W6NXP", "\0", "Hello World!"); //make raw packet bytes
-
-        print_packet(packet, len);
-
-        flip_bit_order(packet, len); //flip bit order of non-CRC bytes
-
-        print_packet(packet, len);
-
-        crc = crc_16(packet, len); //generate CRC
-
-        packet[len] = (crc >> 8) & 0xFF;
-        len++;
-        packet[len] = (crc) & 0xFF;
-        len++;
-
-        print_packet(packet, len);
-
-        len = stuff_bits(output, packet, len);
-
-        print_packet(output, len);
-        */
-	    len = make_AX_25_packet(packet, "APRS", "W6NXP", "\0", "Hello World!"); //create packet
+	    len = make_AX_25_packet(packet, "APRS", "W6NXP", "WIDE1-1,WIDE2-2", "Hello World! It is I_", 41, 41); //create packet
 	    print_packet(packet, len);
 
 	    push_packet(&symbol_queue, packet, len);
@@ -163,6 +65,17 @@ int main(void) {
         while (tx_queue_empty == 0); //wait till empty
         disable_DSP_timer();
         tx_queue_empty = 0;
+
+        putchars("\n\r");
+
+        putchars("NRZI Test\n\r");
+
+        test[0] = 0x7E;
+        test[1] = 0x7E;
+
+        NRZ_to_NRZI(test, 2);
+
+        //print_packet(test, 2);
 
         hardware_delay(20000);
 	}
