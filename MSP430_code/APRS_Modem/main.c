@@ -48,7 +48,22 @@ int main(void) {
     unsigned int len;
     unsigned int i;
 
-    char test[2];
+    /*
+    char bits_array[400] = {0};
+    char bits_array2[400] = {0};
+
+    struct bitstream bits = {
+                             .bytes = bits_array,
+                             .bit_pointer = 7,
+                             .byte_pointer = 0
+    };
+
+    struct bitstream bits2 = {
+                             .bytes = bits_array2,
+                             .bit_pointer = 7,
+                             .byte_pointer = 0
+    };
+    */
 
     //char c = '\0';
 	for(;;) {
@@ -57,9 +72,9 @@ int main(void) {
 	    }
 
 	    putchars("Ready to transmit...\n\r");
-	    waitchar();
+	    //waitchar();
 
-	    len = make_AX_25_packet(packet, "APRS", "W6NXP", "WIDE1-1,WIDE2-2", "Hello World! It is I_", 41, 41); //create packet
+	    len = make_AX_25_packet(packet, "APRS", "W6NXP", "WIDE1-1,WIDE1-2", ">WHAT HATH GOD WROUGHT", 41, 41); //create packet
 
 	    putchars("Packet Contents:\n\r");
 	    print_packet(packet, len);
@@ -71,7 +86,32 @@ int main(void) {
         disable_DSP_timer();
         tx_queue_empty = 0;
 
-        //hardware_delay(20000);
+        hardware_delay(20000);
+
+
+	    /*
+	    for (i=0;i<4;i++) {
+            push_byte(&bits, 0x0F);
+	    }
+
+	    print_bitstream_bytes(&bits);
+
+	    stuff_bitstream(&bits2, &bits);
+
+	    //set_stream_bit(&bits2, 5, 1);
+
+	    bitstream_NRZ_to_NRZI(&bits2);
+
+	    for (i=0;i<get_len(&bits2);i++) {
+	        print_dec(peek_bit(&bits2, i), 1);
+	        putchar(' ');
+	    }
+
+	    putchars("\n\r");
+
+	    clear_bitstream(&bits);
+	    clear_bitstream(&bits2);
+	    */
 	}
 	
 	return 0;

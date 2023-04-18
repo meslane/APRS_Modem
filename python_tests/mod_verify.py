@@ -91,7 +91,7 @@ def encodeAPRS(dest=b'APCAL', callsign=b'KN6IEK-15', digi=[b'WIDE1-1', b'WIDE2-2
     # bits to allocate == 8*(pre + post flags + 2) + 3300
     # in this case need 3956 bits (494.5 bytes)
     
-    bits = bitarray('00000001') #* (40 + 1) # 40 preflags, 1 flag
+    bits = bitarray('00000001') * 3#* (40 + 1) # 40 preflags, 1 flag
     stuffCount = 0
     crc = 0xFFFF
     currNRZI = True
@@ -114,9 +114,9 @@ def encodeAPRS(dest=b'APCAL', callsign=b'KN6IEK-15', digi=[b'WIDE1-1', b'WIDE2-2
         stuffCount, currNRZI = insertByte(bits, stuffCount, currNRZI, b)
     
     if currNRZI:
-        bits += bitarray('00000001') * (40 + 1) # 40 postflags, 1 flag
+        bits += bitarray('00000001') * 3 #* (40 + 1) # 40 postflags, 1 flag
     else:
-        bits += bitarray('11111110') * (40 + 1) # 40 postflags, 1 flag
+        bits += bitarray('11111110') * 3#* (40 + 1) # 40 postflags, 1 flag
     return bits
     
 
@@ -203,6 +203,6 @@ def print_bitarray(b):
             i=0
             temp = 0
    
-bits = encodeAPRS(dest=b'APRS', callsign=b'W6NXP', digi=[b'WIDE1-1',b'WIDE2-2'], info=b'Hello World! It is I_')
+bits = encodeAPRS(dest=b'APRS', callsign=b'W6NXP', digi=[b'WIDE1-1',b'WIDE1-2'], info=b'>Test!')
 print(bits)
 print_bitarray(bits)

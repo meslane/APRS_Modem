@@ -8,16 +8,33 @@
 #ifndef PACKET_H_
 #define PACKET_H_
 
-#define FRAM_WRITE_DISABLE 0x00
-#define FRAM_WRITE_ENABLE 0x01
-
 struct bitstream {
-    char* bits;
-    unsigned int pointer;
+    char* bytes;
+    unsigned int byte_pointer;
+    unsigned char bit_pointer;
 };
 
-void enable_FRAM_write(const char enable);
+void push_bit(struct bitstream* s, char bit);
+void push_byte(struct bitstream* s, char byte);
+char pop_bit(struct bitstream* s);
 
+char peek_bit(struct bitstream* s, unsigned int index);
+void set_stream_bit(struct bitstream* s, unsigned int index, char bit);
+
+void clear_bitstream(struct bitstream* s);
+
+void print_bitstream_bytes(struct bitstream* s);
+
+unsigned int get_len(struct bitstream* s);
+
+void stuff_bitstream(struct bitstream* output, struct bitstream* input);
+void bitstream_NRZ_to_NRZI(struct bitstream* s);
+void bitstream_add_flags(struct bitstream* output, struct bitstream* input, unsigned char num_start_flags, unsigned char num_end_flags);
+
+void array_to_bitstream(struct bitstream* output, char* input, unsigned int len);
+unsigned int bitstream_to_array(char* output, struct bitstream* input);
+
+//=========
 char is_digit(char c);
 char ascii_to_num(char c);
 
@@ -37,7 +54,7 @@ unsigned int crc_16_alt(char* data, unsigned int len);
 
 unsigned int stuff_bits(char* output, char* input, unsigned int len);
 
-unsigned int add_flags(char* output, char* input, unsigned int input_len, unsigned int num_start_flags, unsigned int num_end_flags, unsigned char NRZI_bit);
+unsigned int add_flags(char* output, char* input, unsigned int input_len, unsigned int num_start_flags, unsigned int num_end_flags, unsigned char NRZI_bit, unsigned char end_bit_index);
 
 unsigned int make_AX_25_packet(char* output, char* dest, char* src, char* digipeaters, char* payload, unsigned int num_start_flags, unsigned int num_end_flags);
 
