@@ -56,6 +56,9 @@ int main(void) {
 	        packet[i] = 0x00;
 	    }
 
+	    putchars("Ready to transmit...\n\r");
+	    waitchar();
+
 	    len = make_AX_25_packet(packet, "APRS", "W6NXP", "WIDE1-1,WIDE2-2", "Hello World! It is I_", 41, 41); //create packet
 
 	    putchars("Packet Contents:\n\r");
@@ -68,7 +71,7 @@ int main(void) {
         disable_DSP_timer();
         tx_queue_empty = 0;
 
-        hardware_delay(20000);
+        //hardware_delay(20000);
 	}
 	
 	return 0;
