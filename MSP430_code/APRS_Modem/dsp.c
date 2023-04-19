@@ -115,6 +115,23 @@ void set_resistor_DAC(unsigned char val) {
     P6OUT = (val & 0x1F);
 }
 
+/* TX PTT switch */
+void init_PTT(void) {
+    P3SEL0 &= ~0x01;
+    P3DIR |= 0x01;
+    P3OUT &= ~0x01;
+}
+
+//enable push to talk
+void PTT_on(void) {
+    P3OUT |= 0x01;
+}
+
+//disable push to talk
+void PTT_off(void) {
+    P3OUT &= ~0x01;
+}
+
 /* sampling timer */
 void init_DSP_timer(void) {
     TB1CCTL0 = CCIE; //interrupt mode

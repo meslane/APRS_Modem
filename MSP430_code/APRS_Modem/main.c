@@ -43,6 +43,7 @@ int main(void) {
 
     init_resistor_DAC();
     init_DSP_timer();
+    init_PTT();
 
     char packet[400] = {0};
     unsigned int len;
@@ -74,17 +75,20 @@ int main(void) {
 	    putchars("Ready to transmit...\n\r");
 	    //waitchar();
 
-	    len = make_AX_25_packet(packet, "APRS", "W6NXP", "WIDE1-1,WIDE1-2", ">WHAT HATH GOD WROUGHT", 41, 41); //create packet
+	    //33.97213350964593, -117.3242008418511
+	    len = make_AX_25_packet(packet, "APRS", "W6NXP", "WIDE1-1,WIDE1-2", "=3397.21N/11732.42WK", 41, 41); //create packet
 
 	    putchars("Packet Contents:\n\r");
 	    print_packet(packet, len);
 
 	    push_packet(&symbol_queue, packet, len);
 
+	    PTT_on();
 	    enable_DSP_timer();
         while (tx_queue_empty == 0); //wait till empty
         disable_DSP_timer();
         tx_queue_empty = 0;
+        PTT_off();
 
         hardware_delay(20000);
 

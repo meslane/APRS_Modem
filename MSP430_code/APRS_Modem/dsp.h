@@ -26,6 +26,10 @@ unsigned int ADC_to_millivolts(unsigned int adcval);
 void init_resistor_DAC(void);
 void set_resistor_DAC(unsigned char val);
 
+void init_PTT(void);
+void PTT_on(void);
+void PTT_off(void);
+
 void init_DSP_timer(void);
 void enable_DSP_timer(void);
 void disable_DSP_timer(void);
