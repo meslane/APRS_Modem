@@ -203,6 +203,6 @@ def print_bitarray(b):
             i=0
             temp = 0
    
-bits = encodeAPRS(dest=b'APRS', callsign=b'W6NXP', digi=[b'WIDE1-1',b'WIDE1-2'], info=b'>Test!')
+bits = encodeAPRS(dest=b'APRS', callsign=b'W6NXP', digi=[b'WIDE1-1',b'WIDE2-1'], info=b'=3397.21N/11732.42WK')
 print(bits)
 print_bitarray(bits)

@@ -75,8 +75,10 @@ int main(void) {
 	    putchars("Ready to transmit...\n\r");
 	    //waitchar();
 
-	    //33.97213350964593, -117.3242008418511
-	    len = make_AX_25_packet(packet, "APRS", "W6NXP", "WIDE1-1,WIDE1-2", "=3397.21N/11732.42WK", 41, 41); //create packet
+
+	    //location format is: ddmm.mm/dddmm.mm
+	    //should show a school icon on top of the belltower
+	    len = make_AX_25_packet(packet, "APRS", "W6NXP", "WIDE1-1,WIDE2-1", "=3358.40N/11719.69WK", 63, 63); //create packet
 
 	    putchars("Packet Contents:\n\r");
 	    print_packet(packet, len);
@@ -90,7 +92,7 @@ int main(void) {
         tx_queue_empty = 0;
         PTT_off();
 
-        hardware_delay(20000);
+        hardware_delay(60000);
 
 
 	    /*
