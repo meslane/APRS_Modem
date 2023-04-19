@@ -49,31 +49,13 @@ int main(void) {
     unsigned int len;
     unsigned int i;
 
-    /*
-    char bits_array[400] = {0};
-    char bits_array2[400] = {0};
-
-    struct bitstream bits = {
-                             .bytes = bits_array,
-                             .bit_pointer = 7,
-                             .byte_pointer = 0
-    };
-
-    struct bitstream bits2 = {
-                             .bytes = bits_array2,
-                             .bit_pointer = 7,
-                             .byte_pointer = 0
-    };
-    */
-
-    //char c = '\0';
 	for(;;) {
 	    for (i=0;i<400;i++) {
 	        packet[i] = 0x00;
 	    }
 
 	    putchars("Ready to transmit...\n\r");
-	    //waitchar();
+	    waitchar();
 
 
 	    //location format is: ddmm.mm/dddmm.mm
@@ -92,32 +74,7 @@ int main(void) {
         tx_queue_empty = 0;
         PTT_off();
 
-        hardware_delay(60000);
-
-
-	    /*
-	    for (i=0;i<4;i++) {
-            push_byte(&bits, 0x0F);
-	    }
-
-	    print_bitstream_bytes(&bits);
-
-	    stuff_bitstream(&bits2, &bits);
-
-	    //set_stream_bit(&bits2, 5, 1);
-
-	    bitstream_NRZ_to_NRZI(&bits2);
-
-	    for (i=0;i<get_len(&bits2);i++) {
-	        print_dec(peek_bit(&bits2, i), 1);
-	        putchar(' ');
-	    }
-
-	    putchars("\n\r");
-
-	    clear_bitstream(&bits);
-	    clear_bitstream(&bits2);
-	    */
+        hardware_delay(10000);
 	}
 	
 	return 0;
