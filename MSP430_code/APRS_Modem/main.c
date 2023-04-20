@@ -4,6 +4,7 @@
 #include <dsp.h>
 #include <math.h>
 #include <packet.h>
+#include <gps.h>
 
 /* delay ISR */
 #pragma vector=TIMER2_B0_VECTOR
@@ -27,6 +28,7 @@ void hardware_delay(unsigned int d) {
 /**
  * main.c
  */
+
 int main(void) {
 	WDTCTL = WDTPW | WDTHOLD;	// stop watchdog timer
 	PM5CTL0 &= ~LOCKLPM5; //disable high-impedance GPIO mode
@@ -34,7 +36,8 @@ int main(void) {
 
 	Software_Trim();
 	init_clock();
-	init_UART_UCA1(115200);
+	init_UART_UCA1(115200); //terminal output
+	init_UART_UCA0(9600); //GPS module
 
 	//set P1.5 to ADC input
     P1SEL0 |= (1 << 5);
@@ -49,7 +52,20 @@ int main(void) {
     unsigned int len;
     unsigned int i;
 
+    char c;
+    char GPS_str[256];
+    struct data_queue GPS_queue = {.data = GPS_str,
+                                  .head = 0,
+                                  .tail = 0,
+                                  .MAX_SIZE = 256};
+
+    char UTC_str[16];
+    char coord_str[32];
+    char elev_str[16];
+    int fix_status;
+
 	for(;;) {
+	    /*
 	    for (i=0;i<400;i++) {
 	        packet[i] = 0x00;
 	    }
@@ -59,7 +75,7 @@ int main(void) {
 
 	    //location format is: ddmm.mm/dddmm.mm
 	    //should show a school icon on top of the belltower
-	    len = make_AX_25_packet(packet, "APRS", "W6NXP", "WIDE1-1,WIDE2-1", "=3358.40N/11719.69WK", 63, 63); //create packet
+	    len = make_AX_25_packet(packet, "APRS", "W6NXP", "WIDE1-1,WIDE2-1", "=3357.40N/11718.69WK", 63, 63); //create packet
 
 	    putchars("Packet Contents:\n\r");
 	    print_packet(packet, len);
@@ -74,6 +90,34 @@ int main(void) {
         PTT_off();
 
         hardware_delay(10000);
+        */
+	    while(queue_len(&PORTA0_RX_queue) > 0) {
+	        c = pop(&PORTA0_RX_queue);
+	        //putchar(c);
+	        push(&GPS_queue, c);
+
+	        if (c == '\n') { //end of data string
+	            fix_status = parse_GPGGA_string(&GPS_queue, UTC_str, coord_str, elev_str);
+	            clear_queue(&GPS_queue);
+	            if (fix_status != -1) {
+	                putchars("UTC: ");
+                    putchars(UTC_str);
+                    putchars("\n\r");
+                    putchars("Coords: ");
+                    putchars(coord_str);
+                    putchars("\n\r");
+                    putchars("Elevation: ");
+                    putchars(elev_str);
+                    putchars("\n\r");
+
+                    if (fix_status == 0) {
+                        putchars("NO GPS LOCK\n\r");
+                    } else {
+                        putchars("GPS LOCKED\n\r");
+                    }
+	            }
+	        }
+	    }
 	}
 	
 	return 0;
