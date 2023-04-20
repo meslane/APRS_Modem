@@ -57,7 +57,6 @@ int main(void) {
 	    putchars("Ready to transmit...\n\r");
 	    waitchar();
 
-
 	    //location format is: ddmm.mm/dddmm.mm
 	    //should show a school icon on top of the belltower
 	    len = make_AX_25_packet(packet, "APRS", "W6NXP", "WIDE1-1,WIDE2-1", "=3358.40N/11719.69WK", 63, 63); //create packet

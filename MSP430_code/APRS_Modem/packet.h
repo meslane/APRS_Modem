@@ -50,11 +50,6 @@ unsigned int generate_AX_25_packet_bytes(char* output, char* dest, char* src, ch
 void flip_bit_order(char* data, unsigned int len);
 
 unsigned int crc_16(char* buf, unsigned int len);
-unsigned int crc_16_alt(char* data, unsigned int len);
-
-unsigned int stuff_bits(char* output, char* input, unsigned int len);
-
-unsigned int add_flags(char* output, char* input, unsigned int input_len, unsigned int num_start_flags, unsigned int num_end_flags, unsigned char NRZI_bit, unsigned char end_bit_index);
 
 unsigned int make_AX_25_packet(char* output, char* dest, char* src, char* digipeaters, char* payload, unsigned int num_start_flags, unsigned int num_end_flags);
 
