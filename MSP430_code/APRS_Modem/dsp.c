@@ -26,7 +26,7 @@ struct data_queue symbol_queue = {.data = symbol_queue_array,
                                   .tail = 0,
                                   .MAX_SIZE = 400};
 
-char tx_queue_empty = 1;
+char tx_queue_empty = 0;
 
 /* timer interrupt */
 #pragma vector=TIMER1_B0_VECTOR
