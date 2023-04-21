@@ -1,9 +1,11 @@
-#   #   ###  #  #  #  #  ###
-#   #  #     ## #  #  #  #  #
-# # #  ###   # ##   ##   ###
-# # #  #  #  #  #  #  #  #
- # #    ###  #  #  #  #  # 
-
+  _       _     _ _ _     _      _     _    _     _ _ _
+/\_\    /\_\  /\_\_\_\  /\_\ _ /\_\  /\_\ /\_\  /\_\_\_\
+\/\_\   \ \_\ \/\_\/_/_ \/\_\_\\_\_\ \/\_\__\_\ \/\_\/\_\
+ \/\_\  _\ \_\ \/\_\_\_\ \/\_\//\_\_\ \/_/_\_\/_ \/\_\_\_\
+  \/\_\/\_\_\_\ \/\_\/\_\ \/\_\\/_/\_\  /\ \_/\ \ \/\_\/_/
+   \/\_\_\_\_\_\ \/\_\_\_\ \/\_\  \/\_\ \/\_\\/\_\ \/\_\ 
+    \/_/_/_/_/_/  \/_/_/_/  \/_/   \/_/  \/_/ \/_/  \/_/
+    
  ##   ###   ###    ###    #   #   ##   ###   ####  #   #  #
 #  #  #  #  #  #  #       ## ##  #  #  #  #  #     ## ##  #
 ####  ###   ###    ##     # # #  #  #  #  #  ####  # # #  #
@@ -13,13 +15,14 @@
 ~== Current Functionality ==~
 -Encoding and transmission of arbitrary packets over resistor DAC
 -Automatic radio push-to-talk activation
+-GPS module support
 
 ~== Planned Functionality ==~
--GPS module support
 -RX capabilities
 
 ~== Current Bugs (TOFIX) ==~
-None!
+-First two APRS transmissions are not properly formatted (transmits nothing, then transmits twice)
+    -Probably an init issue
 
 ~== Fixed Bugs ==~
 -Decoding would fail unless a print statement was in the dsp isr
