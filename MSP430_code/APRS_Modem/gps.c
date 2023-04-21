@@ -7,7 +7,9 @@
 
 #include <gps.h>
 #include <serial.h>
+#include <math.h>
 
+//parse string and spit out location information
 int parse_GPGGA_string(struct data_queue* s, char* UTC, char* coords, char* elevation) {
     int position_fix = -1; //return -1 of not a GPGGA string
     char c;
@@ -72,4 +74,72 @@ int parse_GPGGA_string(struct data_queue* s, char* UTC, char* coords, char* elev
     elevation[i - 1] = '\0';
 
     return position_fix;
+}
+
+
+//take a UTC timestamp string and return seconds elapsed
+unsigned long UTC_seconds(char* UTC_str) {
+    unsigned long secs = 0;
+    unsigned long temp;
+
+    temp = str_to_int(UTC_str); //returns in hhmmss format, must do some math on it to get what we want
+
+    secs += (temp / 10000) * 3600; //hours -> secs
+    secs += ((temp / 100) % 100) * 60; //mins -> secs
+    secs += (temp % 100); //secs
+
+    return secs;
+}
+
+//convert coords and elevation into a payload string
+unsigned int coords_to_APRS_payload(char* payload, char* coords, char* elev, char symbol) {
+    int i = 0;
+    int j = 0;
+    unsigned long long elevation;
+
+    payload[i] = '=';
+    i++;
+    while (coords[j] != '\0') {
+        if (coords[j] >= 0x40) { //move output pointer back two spaces if letter (to get rid of last two digits)
+            i -= 3;
+        }
+
+        payload[i] = coords[j];
+
+        if (coords[j] == 'N' || coords[j] == 'S') { //add spacer
+            i++;
+            payload[i] = '/';
+        }
+
+        j++;
+        i++;
+    }
+
+    //add symbol
+    payload[i] = symbol;
+    i++;
+
+    //add altitude
+    payload[i] = '>';
+    i++;
+    payload[i] = '/';
+    i++;
+    payload[i] = 'A';
+    i++;
+    payload[i] = '=';
+    i++;
+
+    //APRS network expects elevation to be in feet, GPS gives it in meters
+    elevation = (str_to_int(elev) * 3281)/1000;
+
+    //convert back to string
+    for (j = (6-1); j>=0; j--) { //APRS expects 6 digits
+        payload[i] = (((elevation / pow(10,j)) % 10) + 48);
+        i++;
+    }
+
+    payload[i] = '\0';
+    i++;
+
+    return i;
 }

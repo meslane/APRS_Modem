@@ -362,3 +362,25 @@ char streq(char* str1, char* str2, unsigned int len) {
 
     return 1;
 }
+
+long long str_to_int(char* str) {
+    unsigned int i = 0;
+    long long output = 0;
+    int sign = 1;
+
+    while (str[i] != '\0' && str[i] != '.') {
+        output *= 10;
+
+        if (i == 0 && str[i] == '-') { //detect negative sign
+            sign = -1;
+        } else {
+            output += (str[i] - 0x30); //remove ASCII offset
+        }
+
+        i++;
+    }
+
+    output *= sign;
+
+    return output;
+}

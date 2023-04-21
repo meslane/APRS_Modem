@@ -44,5 +44,6 @@ void print_binary(char b);
 void print_hex(char h);
 
 char streq(char* str1, char* str2, unsigned int len);
+long long str_to_int(char* str);
 
 #endif /* SERIAL_H_ */
