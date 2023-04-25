@@ -57,9 +57,6 @@ char modify_value(unsigned int* val, unsigned char digits, enum encoder_dir* enc
         update = 1;
     }
 
-    print_dec(*cursor_ptr, 3);
-    putchars("\n\r");
-
     return update;
 }
 
@@ -105,10 +102,12 @@ enum beacon_state beacon_tick(enum beacon_state state) {
         break;
     case START_TX:
         state = TX;
+        update_display = 1;
         break;
     case TX:
         if (TX_ongoing == 0) {
             state = LOCK;
+            update_display = 1;
         }
         break;
     }
@@ -268,8 +267,13 @@ enum UI_state UI_tick(enum UI_state state) {
                 LCD_print("NO GPS LOCK", 0);
             } else {
                 coords_to_display(coord_str, lat, lon);
+                LCD_print(elev_str, 9);
                 LCD_print(lat, 0);
                 LCD_print(lon, 16);
+
+                if (TX_ongoing == 1) {
+                    LCD_print("TX", 30);
+                }
             }
         }
         break;
