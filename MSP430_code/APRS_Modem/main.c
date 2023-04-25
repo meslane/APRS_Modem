@@ -27,6 +27,42 @@ char elev_str[16];
 char lat[16];
 char lon[16];
 
+char modify_value(unsigned int* val, unsigned char digits, enum encoder_dir* encoder_state, enum cursor_mode* mode, char* cursor_ptr) {
+    char update = 0;
+
+    if (*encoder_state == CW) {
+        if (*mode == MOVE && *cursor_ptr < 15) {
+            *cursor_ptr += 1;
+            set_LCD_cursor(*cursor_ptr);
+        } else if (*mode == MODIFY) { //modify
+            *val += pow(10, (digits-1)-*cursor_ptr);
+            update = 1;
+        }
+    }
+    else if (*encoder_state == CCW) {
+        if (*mode == MOVE && *cursor_ptr > 0) {
+            *cursor_ptr -= 1;
+            set_LCD_cursor(*cursor_ptr);
+        } else if (*mode == MODIFY) {
+            *val -= pow(10, (digits-1)-*cursor_ptr);
+            update = 1;
+        }
+    }
+    else if (*encoder_state == BUTTON && *cursor_ptr < digits) {
+        if (*mode == MODIFY) {
+            *mode = MOVE;
+        } else if (*mode == MOVE) {
+            *mode = MODIFY;
+        }
+        update = 1;
+    }
+
+    print_dec(*cursor_ptr, 3);
+    putchars("\n\r");
+
+    return update;
+}
+
 /* state machine function */
 enum beacon_state beacon_tick(enum beacon_state state) {
     static unsigned long long curr_UTC_secs = 0;
@@ -283,34 +319,9 @@ enum UI_state UI_tick(enum UI_state state) {
         }
         break;
     case PERIOD:
-        if (encoder_state == CW) {
-            if (mode == MOVE && cursor_ptr < 15) {
-                cursor_ptr++;
-                set_LCD_cursor(cursor_ptr);
-            } else if (mode == MODIFY) { //modify
-                BEACON_INTERVAL += pow(10, 4-cursor_ptr);
-                update_display = 1;
-            }
-        }
-        else if (encoder_state == CCW) {
-            if (mode == MOVE && cursor_ptr > 0) {
-                cursor_ptr--;
-                set_LCD_cursor(cursor_ptr);
-            } else if (mode == MODIFY) {
-                BEACON_INTERVAL -= pow(10, 4-cursor_ptr);
-                update_display = 1;
-            }
-        }
-        else if (encoder_state == BUTTON && cursor_ptr < 5) {
-            if (mode == MODIFY) {
-                mode = MOVE;
-            } else if (mode == MOVE) {
-                mode = MODIFY;
-            }
-            update_display = 1;
-        }
+        update_display += modify_value(&BEACON_INTERVAL, 5, &encoder_state, &mode, &cursor_ptr);
 
-        if (update_display == 1) {
+        if (update_display > 0) {
             clear_LCD();
             int_to_str(temp, BEACON_INTERVAL, 5);
             LCD_print(temp, 0);
