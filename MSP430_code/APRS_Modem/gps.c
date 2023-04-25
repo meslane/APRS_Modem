@@ -120,8 +120,8 @@ unsigned int coords_to_APRS_payload(char* payload, char* coords, char* elev, cha
     i++;
 
     //add altitude
-    payload[i] = '>';
-    i++;
+    //payload[i] = '>';
+    //i++;
     payload[i] = '/';
     i++;
     payload[i] = 'A';

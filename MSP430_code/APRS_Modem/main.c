@@ -8,8 +8,10 @@
 #include <ui.h>
 
 #define MENU_SIZE 7
+#define NUM_SYMBOLS 12
 
 unsigned int BEACON_INTERVAL = 30;
+unsigned int JITTER_INTERVAL = 0;
 
 enum beacon_state{BEACON_START, NO_LOCK, LOCK, START_TX, TX};
 enum UI_state{UI_START, INFO, MENU, PERIOD, JITTER, DEST, CALL, REPEAT, MESSAGE};
@@ -27,10 +29,41 @@ char elev_str[16];
 char lat[16];
 char lon[16];
 
-char modify_value(unsigned int* val, unsigned char digits, enum encoder_dir* encoder_state, enum cursor_mode* mode, char* cursor_ptr) {
+const char digipeater_settings[4][16] = {
+    "WIDE2-1",
+    "WIDE2-2",
+    "WIDE1-1,WIDE2-1",
+    "WIDE1-1,WIDE2-2"
+};
+
+unsigned char digi_index = 2;
+char* digi = (char*)digipeater_settings[2];
+
+char call[10] = "W6NXP    ";
+char dest[10] = "APRS     ";
+
+const char map_symbol_strings[NUM_SYMBOLS][16] = {
+    "House",
+    "Person",
+    "Bicycle",
+    "Motorcycle",
+    "Canoe",
+    "Boat",
+    "Car",
+    "Truck",
+    "Train",
+    "Plane",
+    "Helicopter",
+    "Balloon"
+};
+const char map_symbols[NUM_SYMBOLS + 1] = "K[b<CY>u=^XO";
+
+unsigned char symbol_index = 0;
+
+char modify_value(unsigned int* val, unsigned char digits, enum encoder_dir encoder_state, enum cursor_mode* mode, char* cursor_ptr) {
     char update = 0;
 
-    if (*encoder_state == CW) {
+    if (encoder_state == CW) {
         if (*mode == MOVE && *cursor_ptr < 15) {
             *cursor_ptr += 1;
             set_LCD_cursor(*cursor_ptr);
@@ -39,7 +72,7 @@ char modify_value(unsigned int* val, unsigned char digits, enum encoder_dir* enc
             update = 1;
         }
     }
-    else if (*encoder_state == CCW) {
+    else if (encoder_state == CCW) {
         if (*mode == MOVE && *cursor_ptr > 0) {
             *cursor_ptr -= 1;
             set_LCD_cursor(*cursor_ptr);
@@ -48,7 +81,44 @@ char modify_value(unsigned int* val, unsigned char digits, enum encoder_dir* enc
             update = 1;
         }
     }
-    else if (*encoder_state == BUTTON && *cursor_ptr < digits) {
+    else if (encoder_state == BUTTON && *cursor_ptr < digits) {
+        if (*mode == MODIFY) {
+            *mode = MOVE;
+        } else if (*mode == MOVE) {
+            *mode = MODIFY;
+        }
+        update = 1;
+    }
+
+    return update;
+}
+
+char modify_call(char* callsign, enum encoder_dir encoder_state, enum cursor_mode* mode, char* cursor_ptr) {
+    char update = 0;
+
+    if (encoder_state == CW) {
+        if (*mode == MOVE && *cursor_ptr < 15) {
+            *cursor_ptr += 1;
+            set_LCD_cursor(*cursor_ptr);
+        } else if (*mode == MODIFY) { //modify
+            if (callsign[*cursor_ptr] < 0x5A) { //must be valid char
+                callsign[*cursor_ptr]++;
+            }
+            update = 1;
+        }
+    }
+    else if (encoder_state == CCW) {
+        if (*mode == MOVE && *cursor_ptr > 0) {
+            *cursor_ptr -= 1;
+            set_LCD_cursor(*cursor_ptr);
+        } else if (*mode == MODIFY) {
+            if (callsign[*cursor_ptr] > 0x20) { //must be valid char
+                callsign[*cursor_ptr]--;
+            }
+            update = 1;
+        }
+    }
+    else if (encoder_state == BUTTON && *cursor_ptr < 9) {
         if (*mode == MODIFY) {
             *mode = MOVE;
         } else if (*mode == MOVE) {
@@ -153,13 +223,20 @@ enum beacon_state beacon_tick(enum beacon_state state) {
         for (i=0;i<400;i++) { //clear packet
             packet[i] = 0x00;
         }
-        coords_to_APRS_payload(payload, coord_str, elev_str, 'K');
+        coords_to_APRS_payload(payload, coord_str, elev_str, map_symbols[symbol_index]);
 
-        putchars("Transmitting payload: ");
+        putchars("Transmitting message: ");
+        putchars(dest);
+        putchars(" ");
+        putchars(call);
+        putchars(" ");
+        putchars(digi);
+        putchars(" ");
         putchars(payload);
         putchars("\n\r");
 
-        pkt_len = make_AX_25_packet(packet, "APRS", "W6NXP", "WIDE1-1,WIDE2-1", payload, 63, 63);
+        //pkt_len = make_AX_25_packet(packet, "APRS", "W6NXP", "WIDE1-1,WIDE2-1", payload, 63, 63);
+        pkt_len = make_AX_25_packet(packet, dest, call, digi, payload, 63, 63);
         push_packet(&symbol_queue, packet, pkt_len);
         PTT_on(); //key up
         enable_DSP_timer(); //start transmission
@@ -212,21 +289,29 @@ enum UI_state UI_tick(enum UI_state state) {
                 break;
             case 1:
                 state = JITTER;
+                show_LCD_cursor();
                 break;
             case 2:
                 state = DEST;
+                show_LCD_cursor();
                 break;
             case 3:
                 state = CALL;
+                show_LCD_cursor();
                 break;
             case 4:
                 state = REPEAT;
+                //mode = MODIFY;
+                cursor_ptr = 15;
+                hide_LCD_cursor();
                 break;
             case 5:
                 state = MESSAGE;
+                hide_LCD_cursor();
                 break;
             case 6:
                 state = INFO;
+                hide_LCD_cursor();
                 break;
             default:
                 break;
@@ -235,22 +320,17 @@ enum UI_state UI_tick(enum UI_state state) {
         }
         break;
     case PERIOD:
-        if (encoder_state == BUTTON && cursor_ptr == 15) { //temp
-           state = MENU;
-           menu_ptr = 0;
-           update_display = 1;
-           hide_LCD_cursor();
-       }
-        break;
     case JITTER:
-        break;
     case DEST:
-        break;
     case CALL:
-        break;
     case REPEAT:
-        break;
     case MESSAGE:
+        if (encoder_state == BUTTON && cursor_ptr == 15) { //temp
+               state = MENU;
+               //menu_ptr = 0;
+               update_display = 1;
+               hide_LCD_cursor();
+        }
         break;
     default:
         state = UI_START;
@@ -307,7 +387,7 @@ enum UI_state UI_tick(enum UI_state state) {
                 LCD_print("Repeaters", 0);
                 break;
             case 5:
-                LCD_print("Message", 0);
+                LCD_print("Map Symbol", 0);
                 break;
             case 6:
                 LCD_print("Go Back", 0);
@@ -323,7 +403,7 @@ enum UI_state UI_tick(enum UI_state state) {
         }
         break;
     case PERIOD:
-        update_display += modify_value(&BEACON_INTERVAL, 5, &encoder_state, &mode, &cursor_ptr);
+        update_display += modify_value(&BEACON_INTERVAL, 5, encoder_state, &mode, &cursor_ptr);
 
         if (update_display > 0) {
             clear_LCD();
@@ -332,9 +412,88 @@ enum UI_state UI_tick(enum UI_state state) {
             LCD_print("^", 15);
             set_LCD_cursor(cursor_ptr);
         }
+        break;
+    case JITTER:
+        update_display += modify_value(&JITTER_INTERVAL, 5, encoder_state, &mode, &cursor_ptr);
+
+        if (update_display > 0) {
+            clear_LCD();
+            int_to_str(temp, JITTER_INTERVAL, 5);
+            LCD_print(temp, 0);
+            LCD_print("^", 15);
+            set_LCD_cursor(cursor_ptr);
+        }
+        break;
+    case DEST:
+        update_display += modify_call(dest, encoder_state, &mode, &cursor_ptr);
+
+        if (update_display > 0) {
+            clear_LCD();
+            LCD_print(dest, 0);
+            LCD_print("^", 15);
+            set_LCD_cursor(cursor_ptr);
+        }
+        break;
+    case CALL:
+        update_display += modify_call(call, encoder_state, &mode, &cursor_ptr);
+
+        if (update_display > 0) {
+            clear_LCD();
+            LCD_print(call, 0);
+            LCD_print("^", 15);
+            set_LCD_cursor(cursor_ptr);
+        }
+        break;
+    case REPEAT:
+        cursor_ptr=15;
+        if (encoder_state == CW) {
+            if (digi_index < 3) {
+                digi = (char*)digipeater_settings[++digi_index];
+                update_display = 1;
+            }
+        }
+        else if (encoder_state == CCW) {
+            if (digi_index > 0) {
+                digi = (char*)digipeater_settings[--digi_index];
+                update_display = 1;
+            }
+        }
+
+        if (update_display > 0) {
+            clear_LCD();
+            LCD_print(digi, 0);
+            //LCD_print("^", 15);
+            set_LCD_cursor(cursor_ptr);
+        }
+        break;
+    case MESSAGE:
+        cursor_ptr=15;
+
+        cursor_ptr=15;
+        if (encoder_state == CW) {
+            if (symbol_index < (NUM_SYMBOLS - 1)) {
+                symbol_index++;
+                update_display = 1;
+            }
+        }
+        else if (encoder_state == CCW) {
+            if (symbol_index > 0) {
+                symbol_index--;
+                update_display = 1;
+            }
+        }
+
+        if (update_display > 0) {
+            clear_LCD();
+            LCD_print((char*)map_symbol_strings[symbol_index], 0);
+            //LCD_print("^", 15);
+            set_LCD_cursor(cursor_ptr);
+        }
 
         break;
     default:
+        state = UI_START;
+        hide_LCD_cursor();
         break;
     }
 
@@ -342,18 +501,17 @@ enum UI_state UI_tick(enum UI_state state) {
     return state;
 }
 
-char temp[16];
 int main(void) {
-	WDTCTL = WDTPW | WDTHOLD;	// stop watchdog timer
-	PM5CTL0 &= ~LOCKLPM5; //disable high-impedance GPIO mode
-	__bis_SR_register(GIE); //enable interrupts
+    WDTCTL = WDTPW | WDTHOLD;	//stop watchdog timer
+    PM5CTL0 &= ~LOCKLPM5; //disable high-impedance GPIO mode
+    __bis_SR_register(GIE); //enable interrupts
 
-	Software_Trim();
-	init_clock();
-	init_UART_UCA1(115200); //terminal output
-	init_UART_UCA0(9600); //GPS module
+    Software_Trim();
+    init_clock();
+    init_UART_UCA1(115200); //terminal output
+    init_UART_UCA0(9600); //GPS module
 
-	//set P1.5 to ADC input
+    //set P1.5 to ADC input
     P1SEL0 |= (1 << 5);
     P1SEL1 |= (1 << 5);
     init_ADC(5); //init for channel #5
@@ -366,18 +524,15 @@ int main(void) {
 
     hide_LCD_cursor();
 
-    int_to_str(temp, BEACON_INTERVAL, 6);
-    putchars(temp);
-
     enum beacon_state gps_state = BEACON_START;
     enum UI_state ui_state = UI_START;
     unsigned long long tick = 0;
-	for(;;) {
-	    gps_state = beacon_tick(gps_state);
+    for(;;) {
+        gps_state = beacon_tick(gps_state);
         ui_state = UI_tick(ui_state);
 
         tick++;
-	}
-	
-	return 0;
+    }
+
+    return 0;
 }
