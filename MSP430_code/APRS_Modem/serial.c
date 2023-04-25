@@ -210,6 +210,28 @@ void init_UART_UCA0(unsigned long baud) {
     UCA0IE |= UCRXIE;                         // Enable USCI_A0 RX interrupt
 }
 
+void enable_UART_interrupt(enum serial_port port) {
+    switch (port) {
+    case PORTA0:
+        UCA0IE |= UCRXIE;
+        break;
+    case PORTA1:
+        UCA1IE |= UCRXIE;
+        break;
+    }
+}
+
+void disable_UART_interrupt(enum serial_port port) {
+    switch (port) {
+    case PORTA0:
+        UCA0IE &= ~UCRXIE;
+        break;
+    case PORTA1:
+        UCA1IE &= ~UCRXIE;
+        break;
+    }
+}
+
 
 /* Wait until the TX buffer is empty and load a char to it */
 void putchar(char c) {
@@ -258,6 +280,17 @@ void print_dec(const long long data, const unsigned char len) {
     for (i = (len-1); i>=0; i--) {
         putchar(((data / pow(10,i)) % 10) + 48);
     }
+}
+
+void int_to_str(char* str, const long long data, const unsigned char len) {
+    int i;
+    unsigned int j = 0;
+
+    for (i = (len-1); i>=0; i--) {
+        str[j] = (((data / pow(10,i)) % 10) + 48);
+        j++;
+    }
+    str[j] = '\0';
 }
 
 void print_binary(char b) {

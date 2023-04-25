@@ -35,6 +35,9 @@ void init_clock();
 
 void init_UART_UCA1(unsigned long baud);
 void init_UART_UCA0(unsigned long baud);
+void enable_UART_interrupt(enum serial_port port);
+void disable_UART_interrupt(enum serial_port port);
+
 void putchar(char c);
 void putchars(char* msg);
 char waitchar(enum serial_port port);
@@ -45,5 +48,6 @@ void print_hex(char h);
 
 char streq(char* str1, char* str2, unsigned int len);
 long long str_to_int(char* str);
+void int_to_str(char* str, const long long data, const unsigned char len);
 
 #endif /* SERIAL_H_ */

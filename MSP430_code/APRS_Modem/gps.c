@@ -143,3 +143,33 @@ unsigned int coords_to_APRS_payload(char* payload, char* coords, char* elev, cha
 
     return i;
 }
+
+void coords_to_display(char* coords, char* lat, char* lon) {
+    int i = 0;
+    int j = 0;
+
+    char* current_str = lat;
+
+    while (coords[j] != '\0') {
+        if (coords[j] >= 0x40) { //move output pointer back two spaces if letter (to get rid of last two digits)
+            i -= 3;
+        }
+
+        current_str[i] = coords[j];
+
+        if (coords[j] == 'N' || coords[j] == 'S') { //add spacer
+            current_str[++i] = '\0';
+            current_str = lon;
+            i=0;
+        }
+        else if (coords[j] == 'W' || coords[j] == 'E'){
+            current_str[++i] = '\0';
+            break;
+        }
+        else {
+            i++;
+        }
+
+        j++;
+    }
+}
