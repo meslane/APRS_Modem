@@ -7,11 +7,25 @@
 #include <gps.h>
 #include <ui.h>
 
-#define MENU_SIZE 7
-#define NUM_SYMBOLS 12
+#define FRAM_WRITE_DISABLE 0x00
+#define FRAM_WRITE_ENABLE 0x01
 
-unsigned int BEACON_INTERVAL = 30;
-unsigned int JITTER_INTERVAL = 0;
+#define MENU_SIZE 7
+#define NUM_SYMBOLS 13
+
+/* enable/disable writing to FRAM */
+void enable_FRAM_write(const char enable) {
+    switch(enable) {
+    case FRAM_WRITE_ENABLE:
+        SYSCFG0 = FRWPPW | DFWP; //enable FRAM write
+        break;
+    case FRAM_WRITE_DISABLE:
+        SYSCFG0 = FRWPPW | PFWP | DFWP; //disable FRAM write
+        break;
+    default:
+        break;
+    }
+}
 
 enum beacon_state{BEACON_START, NO_LOCK, LOCK, START_TX, TX};
 enum UI_state{UI_START, INFO, MENU, PERIOD, JITTER, DEST, CALL, REPEAT, MESSAGE};
@@ -36,14 +50,10 @@ const char digipeater_settings[4][16] = {
     "WIDE1-1,WIDE2-2"
 };
 
-unsigned char digi_index = 2;
-char* digi = (char*)digipeater_settings[2];
-
-char call[10] = "W6NXP    ";
-char dest[10] = "APRS     ";
+char* digi;
 
 const char map_symbol_strings[NUM_SYMBOLS][16] = {
-    "House",
+    "School",
     "Person",
     "Bicycle",
     "Motorcycle",
@@ -52,13 +62,48 @@ const char map_symbol_strings[NUM_SYMBOLS][16] = {
     "Car",
     "Truck",
     "Train",
-    "Plane",
+    "Small Plane",
+    "Large Plane",
     "Helicopter",
     "Balloon"
 };
-const char map_symbols[NUM_SYMBOLS + 1] = "K[b<CY>u=^XO";
 
+const char map_symbols[NUM_SYMBOLS] = {
+    'K',
+    '[',
+    'b',
+    '<',
+    'C',
+    'Y',
+    '>',
+    'u',
+    '=',
+    '\'',
+    '^',
+    'X',
+    'O'
+};
+
+unsigned int current_interval;
+
+/* save during power cycles */
+#pragma PERSISTENT(BEACON_INTERVAL);
+unsigned int BEACON_INTERVAL = 30;
+
+#pragma PERSISTENT(JITTER_INTERVAL);
+unsigned int JITTER_INTERVAL = 0;
+
+#pragma PERSISTENT(digi_index)
+unsigned char digi_index = 2;
+
+#pragma PERSISTENT(symbol_index)
 unsigned char symbol_index = 0;
+
+#pragma PERSISTENT(call)
+char call[10] = "W6NXP    ";
+
+#pragma PERSISTENT(dest)
+char dest[10] = "APRS     ";
 
 char modify_value(unsigned int* val, unsigned char digits, enum encoder_dir encoder_state, enum cursor_mode* mode, char* cursor_ptr) {
     char update = 0;
@@ -68,7 +113,9 @@ char modify_value(unsigned int* val, unsigned char digits, enum encoder_dir enco
             *cursor_ptr += 1;
             set_LCD_cursor(*cursor_ptr);
         } else if (*mode == MODIFY) { //modify
+            enable_FRAM_write(FRAM_WRITE_ENABLE);
             *val += pow(10, (digits-1)-*cursor_ptr);
+            enable_FRAM_write(FRAM_WRITE_DISABLE);
             update = 1;
         }
     }
@@ -77,7 +124,9 @@ char modify_value(unsigned int* val, unsigned char digits, enum encoder_dir enco
             *cursor_ptr -= 1;
             set_LCD_cursor(*cursor_ptr);
         } else if (*mode == MODIFY) {
+            enable_FRAM_write(FRAM_WRITE_ENABLE);
             *val -= pow(10, (digits-1)-*cursor_ptr);
+            enable_FRAM_write(FRAM_WRITE_DISABLE);
             update = 1;
         }
     }
@@ -102,7 +151,9 @@ char modify_call(char* callsign, enum encoder_dir encoder_state, enum cursor_mod
             set_LCD_cursor(*cursor_ptr);
         } else if (*mode == MODIFY) { //modify
             if (callsign[*cursor_ptr] < 0x5A) { //must be valid char
+                enable_FRAM_write(FRAM_WRITE_ENABLE);
                 callsign[*cursor_ptr]++;
+                enable_FRAM_write(FRAM_WRITE_DISABLE);
             }
             update = 1;
         }
@@ -113,7 +164,9 @@ char modify_call(char* callsign, enum encoder_dir encoder_state, enum cursor_mod
             set_LCD_cursor(*cursor_ptr);
         } else if (*mode == MODIFY) {
             if (callsign[*cursor_ptr] > 0x20) { //must be valid char
+                enable_FRAM_write(FRAM_WRITE_ENABLE);
                 callsign[*cursor_ptr]--;
+                enable_FRAM_write(FRAM_WRITE_DISABLE);
             }
             update = 1;
         }
@@ -130,8 +183,38 @@ char modify_call(char* callsign, enum encoder_dir encoder_state, enum cursor_mod
     return update;
 }
 
+//use ADC noise to add jitter to signal
+unsigned int get_next_jitter_period(unsigned int period, unsigned int jitter_setting) {
+    long long ADC_sum = 0;
+    int sign = 0;
+    unsigned int i;
+    int jitter;
+
+    for(i=0;i<10;i++) {
+        ADC_sum += get_ADC_result();
+    }
+
+    for (i=0;i<4;i++) {
+        sign += get_ADC_result();
+    }
+
+    if (sign % 2 == 0) { //determine if positive or negative
+        sign = 1;
+    } else {
+        sign = -1;
+    }
+
+    jitter = sign * (ADC_sum % (jitter_setting + 1));
+
+    if (jitter_setting < period) {
+        return (period + jitter);
+    } else {
+        return period;
+    }
+}
+
 /* state machine function */
-enum beacon_state beacon_tick(enum beacon_state state) {
+enum beacon_state beacon_tick(enum beacon_state state, enum UI_state ui_state) {
     static unsigned long long curr_UTC_secs = 0;
     static unsigned long long prev_UTC_secs = 0;
 
@@ -153,6 +236,7 @@ enum beacon_state beacon_tick(enum beacon_state state) {
     switch(state) {
     case BEACON_START:
         state = NO_LOCK;
+        current_interval = BEACON_INTERVAL;
         break;
     case NO_LOCK:
         if (GPS_lock > 0) {
@@ -165,7 +249,10 @@ enum beacon_state beacon_tick(enum beacon_state state) {
             state = NO_LOCK;
             putchars("GPS LOCK LOST\n\r");
         }
-        else if ((curr_UTC_secs - prev_UTC_secs) >= BEACON_INTERVAL || (prev_UTC_secs > curr_UTC_secs)) {
+        else if (((curr_UTC_secs - prev_UTC_secs) >= current_interval || (prev_UTC_secs > curr_UTC_secs)) && ui_state == INFO) { //don't transmit if in menu
+            current_interval = get_next_jitter_period(BEACON_INTERVAL,JITTER_INTERVAL);
+            print_dec(current_interval, 4);
+            putchars("\n\r");
             state = START_TX;
             TX_ongoing = 1;
         }
@@ -267,10 +354,12 @@ enum UI_state UI_tick(enum UI_state state) {
     char menu_place[4] = {0};
     enum encoder_dir encoder_state = get_encoder_state();
     char temp[16] = {0};
+    int temp_int;
 
     //transitions
     switch (state) {
     case UI_START:
+        digi = (char*)digipeater_settings[digi_index];
         state = INFO;
         break;
     case INFO:
@@ -403,7 +492,12 @@ enum UI_state UI_tick(enum UI_state state) {
         }
         break;
     case PERIOD:
-        update_display += modify_value(&BEACON_INTERVAL, 5, encoder_state, &mode, &cursor_ptr);
+        temp_int = modify_value(&BEACON_INTERVAL, 5, encoder_state, &mode, &cursor_ptr);
+        update_display += temp_int;
+
+        if (temp_int != 0) { //if modified
+            current_interval = get_next_jitter_period(BEACON_INTERVAL,JITTER_INTERVAL);
+        }
 
         if (update_display > 0) {
             clear_LCD();
@@ -414,9 +508,14 @@ enum UI_state UI_tick(enum UI_state state) {
         }
         break;
     case JITTER:
-        update_display += modify_value(&JITTER_INTERVAL, 5, encoder_state, &mode, &cursor_ptr);
+        temp_int += modify_value(&JITTER_INTERVAL, 5, encoder_state, &mode, &cursor_ptr);
+        update_display += temp_int;
 
-        if (update_display > 0) {
+        if (temp_int != 0) {
+            current_interval = get_next_jitter_period(BEACON_INTERVAL,JITTER_INTERVAL);
+        }
+
+        if (update_display > 0) { //if modified
             clear_LCD();
             int_to_str(temp, JITTER_INTERVAL, 5);
             LCD_print(temp, 0);
@@ -448,13 +547,17 @@ enum UI_state UI_tick(enum UI_state state) {
         cursor_ptr=15;
         if (encoder_state == CW) {
             if (digi_index < 3) {
+                enable_FRAM_write(FRAM_WRITE_ENABLE);
                 digi = (char*)digipeater_settings[++digi_index];
+                enable_FRAM_write(FRAM_WRITE_DISABLE);
                 update_display = 1;
             }
         }
         else if (encoder_state == CCW) {
             if (digi_index > 0) {
+                enable_FRAM_write(FRAM_WRITE_ENABLE);
                 digi = (char*)digipeater_settings[--digi_index];
+                enable_FRAM_write(FRAM_WRITE_DISABLE);
                 update_display = 1;
             }
         }
@@ -472,13 +575,17 @@ enum UI_state UI_tick(enum UI_state state) {
         cursor_ptr=15;
         if (encoder_state == CW) {
             if (symbol_index < (NUM_SYMBOLS - 1)) {
+                enable_FRAM_write(FRAM_WRITE_ENABLE);
                 symbol_index++;
+                enable_FRAM_write(FRAM_WRITE_DISABLE);
                 update_display = 1;
             }
         }
         else if (encoder_state == CCW) {
             if (symbol_index > 0) {
+                enable_FRAM_write(FRAM_WRITE_ENABLE);
                 symbol_index--;
+                enable_FRAM_write(FRAM_WRITE_DISABLE);
                 update_display = 1;
             }
         }
@@ -528,7 +635,7 @@ int main(void) {
     enum UI_state ui_state = UI_START;
     unsigned long long tick = 0;
     for(;;) {
-        gps_state = beacon_tick(gps_state);
+        gps_state = beacon_tick(gps_state, ui_state);
         ui_state = UI_tick(ui_state);
 
         tick++;

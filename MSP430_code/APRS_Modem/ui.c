@@ -149,7 +149,7 @@ void hide_LCD_cursor(void) {
 }
 
 void show_LCD_cursor(void) {
-    write_LCD(COMMAND, 0x0F);
+    write_LCD(COMMAND, 0x0E);
 }
 
 void clear_LCD(void) {
