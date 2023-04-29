@@ -1,0 +1,3 @@
+(sym_lib_table
+  (lib (name "APRS_Modem_Parts")(type "KiCad")(uri "${KIPRJMOD}/APRS_Modem_Parts.kicad_sym")(options "")(descr ""))
+)

@@ -22,6 +22,7 @@
 
 ~== Planned Functionality ==~
 -RX capabilities
+-3D-printed enclosure
 
 ~== Current Bugs (TOFIX) ==~
 
