@@ -10,7 +10,7 @@
 #define FRAM_WRITE_DISABLE 0x00
 #define FRAM_WRITE_ENABLE 0x01
 
-#define MENU_SIZE 7
+#define MENU_SIZE 8
 #define NUM_SYMBOLS 13
 
 /* enable/disable writing to FRAM */
@@ -28,7 +28,7 @@ void enable_FRAM_write(const char enable) {
 }
 
 enum beacon_state{BEACON_START, NO_LOCK, LOCK, START_TX, TX};
-enum UI_state{UI_START, INFO, MENU, PERIOD, JITTER, DEST, CALL, REPEAT, MESSAGE};
+enum UI_state{UI_START, INFO, MENU, PERIOD, JITTER, DEST, CALL, REPEAT, MESSAGE, TX_SETTING};
 
 enum cursor_mode{MOVE, MODIFY};
 
@@ -98,6 +98,9 @@ unsigned char digi_index = 2;
 
 #pragma PERSISTENT(symbol_index)
 unsigned char symbol_index = 0;
+
+#pragma PERSISTENT(TX_while_no_lock)
+unsigned char TX_while_no_lock = 0;
 
 #pragma PERSISTENT(call)
 char call[10] = "W6NXP    ";
@@ -243,6 +246,11 @@ enum beacon_state beacon_tick(enum beacon_state state, enum UI_state ui_state) {
             state = LOCK;
             putchars("GPS LOCK ACQUIRED\n\r");
         }
+        else if (((curr_UTC_secs - prev_UTC_secs) >= current_interval || (prev_UTC_secs > curr_UTC_secs)) && ui_state == INFO && TX_while_no_lock == 1) { //transition to TX if allowed
+            current_interval = get_next_jitter_period(BEACON_INTERVAL,JITTER_INTERVAL);
+            state = START_TX;
+            TX_ongoing = 1;
+        }
         break;
     case LOCK:
         if (GPS_lock < 1) {
@@ -251,8 +259,8 @@ enum beacon_state beacon_tick(enum beacon_state state, enum UI_state ui_state) {
         }
         else if (((curr_UTC_secs - prev_UTC_secs) >= current_interval || (prev_UTC_secs > curr_UTC_secs)) && ui_state == INFO) { //don't transmit if in menu
             current_interval = get_next_jitter_period(BEACON_INTERVAL,JITTER_INTERVAL);
-            print_dec(current_interval, 4);
-            putchars("\n\r");
+            //print_dec(current_interval, 4);
+            //putchars("\n\r");
             state = START_TX;
             TX_ongoing = 1;
         }
@@ -284,7 +292,10 @@ enum beacon_state beacon_tick(enum beacon_state state, enum UI_state ui_state) {
                     GPS_lock = fix_status;
                     curr_UTC_secs = UTC_seconds(UTC_str);
 
-                    /*
+                    if (GPS_lock == 0) {
+                        coord_str[0] = '\0'; //make empty string
+                    }
+
                     putchars("UTC: ");
                     putchars(UTC_str);
                     putchars(" ");
@@ -294,7 +305,6 @@ enum beacon_state beacon_tick(enum beacon_state state, enum UI_state ui_state) {
                     putchars("Elevation: ");
                     putchars(elev_str);
                     putchars("\n\r");
-                    */
 
                     update_display = 1;
                 }
@@ -390,7 +400,6 @@ enum UI_state UI_tick(enum UI_state state) {
                 break;
             case 4:
                 state = REPEAT;
-                //mode = MODIFY;
                 cursor_ptr = 15;
                 hide_LCD_cursor();
                 break;
@@ -399,6 +408,10 @@ enum UI_state UI_tick(enum UI_state state) {
                 hide_LCD_cursor();
                 break;
             case 6:
+                state = TX_SETTING;
+                hide_LCD_cursor();
+                break;
+            case 7:
                 state = INFO;
                 hide_LCD_cursor();
                 break;
@@ -414,6 +427,7 @@ enum UI_state UI_tick(enum UI_state state) {
     case CALL:
     case REPEAT:
     case MESSAGE:
+    case TX_SETTING:
         if (encoder_state == BUTTON && cursor_ptr == 15) { //temp
                state = MENU;
                //menu_ptr = 0;
@@ -434,15 +448,16 @@ enum UI_state UI_tick(enum UI_state state) {
 
             if (GPS_lock == 0) {
                 LCD_print("NO GPS LOCK", 0);
+                LCD_print(UTC_str, 16);
             } else {
                 coords_to_display(coord_str, lat, lon);
                 LCD_print(elev_str, 9);
                 LCD_print(lat, 0);
                 LCD_print(lon, 16);
+            }
 
-                if (TX_ongoing == 1) {
-                    LCD_print("TX", 30);
-                }
+            if (TX_ongoing == 1) {
+                LCD_print("TX", 30);
             }
         }
         break;
@@ -479,6 +494,9 @@ enum UI_state UI_tick(enum UI_state state) {
                 LCD_print("Map Symbol", 0);
                 break;
             case 6:
+                LCD_print("TX Setting", 0);
+                break;
+            case 7:
                 LCD_print("Go Back", 0);
                 break;
             }
@@ -571,8 +589,6 @@ enum UI_state UI_tick(enum UI_state state) {
         break;
     case MESSAGE:
         cursor_ptr=15;
-
-        cursor_ptr=15;
         if (encoder_state == CW) {
             if (symbol_index < (NUM_SYMBOLS - 1)) {
                 enable_FRAM_write(FRAM_WRITE_ENABLE);
@@ -595,6 +611,25 @@ enum UI_state UI_tick(enum UI_state state) {
             LCD_print((char*)map_symbol_strings[symbol_index], 0);
             //LCD_print("^", 15);
             set_LCD_cursor(cursor_ptr);
+        }
+        break;
+    case TX_SETTING:
+        cursor_ptr=15;
+
+        if (encoder_state == CW || encoder_state == CCW) {
+            enable_FRAM_write(FRAM_WRITE_ENABLE);
+            TX_while_no_lock ^= 0x01;
+            enable_FRAM_write(FRAM_WRITE_DISABLE);
+            update_display = 1;
+        }
+
+        if (update_display > 0) {
+            clear_LCD();
+            if (TX_while_no_lock == 0) {
+                LCD_print("TX on lock",0);
+            } else {
+                LCD_print("TX always ",0);
+            }
         }
 
         break;
