@@ -37,3 +37,5 @@
 ~== Acknowlegements ==~
 -Cal EE123 (packet formatting info): https://inst.eecs.berkeley.edu/~ee123/sp15/lab/lab6/Lab6_Part_B-APRS.html
 -Matthew Tran (verification code): https://matthewtran.dev/
+-UCR CS120B for LCD code
+-Mark Adler on StackOverflow for CRC function code
