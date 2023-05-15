@@ -91,7 +91,7 @@ def encodeAPRS(dest=b'APCAL', callsign=b'KN6IEK-15', digi=[b'WIDE1-1', b'WIDE2-2
     # bits to allocate == 8*(pre + post flags + 2) + 3300
     # in this case need 3956 bits (494.5 bytes)
     
-    bits = bitarray('00000001') * 3#* (40 + 1) # 40 preflags, 1 flag
+    bits = bitarray('00000001') * 32#* (40 + 1) # 40 preflags, 1 flag
     stuffCount = 0
     crc = 0xFFFF
     currNRZI = True
@@ -114,9 +114,9 @@ def encodeAPRS(dest=b'APCAL', callsign=b'KN6IEK-15', digi=[b'WIDE1-1', b'WIDE2-2
         stuffCount, currNRZI = insertByte(bits, stuffCount, currNRZI, b)
     
     if currNRZI:
-        bits += bitarray('00000001') * 3 #* (40 + 1) # 40 postflags, 1 flag
+        bits += bitarray('00000001') * 32 #* (40 + 1) # 40 postflags, 1 flag
     else:
-        bits += bitarray('11111110') * 3#* (40 + 1) # 40 postflags, 1 flag
+        bits += bitarray('11111110') * 32#* (40 + 1) # 40 postflags, 1 flag
     return bits
     
 
@@ -175,18 +175,6 @@ def afsk(bits, num_samples, index, prev_ph):
     
     return sig, prev_ph, fs, index
 
-#bits = encodeAPRS(dest=b'APRS', callsign=b'W6NXP', digi=[b'WIDE2-2'], info=b'Hello World!')
-'''
-sig, ph, fs, i = [], 0, 0, 0
-while i < len(bits):
-    sig_frag, ph, fs, i = afsk(bits, 4096, i, ph) # generate 4kB at a time
-    sig = np.concatenate((sig, sig_frag)) # send using DMA in C++
-sig = sig.astype(np.uint8)
-
-scipy.io.wavfile.write('test.wav', fs, sig)
-sd.play((sig / 128 - 1)*.01, fs, blocking=True)
-
-'''
 def print_bitarray(b):
     i = 0
     temp = 0
@@ -206,3 +194,12 @@ def print_bitarray(b):
 bits = encodeAPRS(dest=b'APRS', callsign=b'W6NXP', digi=[b'WIDE1-1',b'WIDE2-1'], info=b'=3397.21N/11732.42WK')
 print(bits)
 print_bitarray(bits)
+
+sig, ph, fs, i = [], 0, 0, 0
+while i < len(bits):
+    sig_frag, ph, fs, i = afsk(bits, 4096, i, ph) # generate 4kB at a time
+    sig = np.concatenate((sig, sig_frag)) # send using DMA in C++
+sig = sig.astype(np.uint8)
+
+scipy.io.wavfile.write('test.wav', fs, sig)
+sd.play((sig / 128 - 1)*.01, fs, blocking=True)
