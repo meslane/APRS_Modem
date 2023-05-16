@@ -4,7 +4,7 @@
  *  Created on: Apr 11, 2023
  *      Author: merri
  */
-
+#include <msp430.h>
 #include <math.h>
 
 const unsigned char sine_LUT[900] = {
@@ -68,3 +68,23 @@ char get_bit(char c, const unsigned char n) {
 unsigned char sine(unsigned int index) {
     return sine_LUT[index];
 }
+
+/* multiply two fixed point numbers (DON'T USE) */
+int FXP_mul(int a, int b) {
+    long result = a * b;
+    return (int)(result >> 8);
+}
+
+/* fast fixed point multiplication using the hardware multiplier */
+int FXP_mul_hardware(int a, int b) {
+    MPYS = a; //load operands
+    OP2 = b;
+
+    __no_operation(); //let multiplier finish
+
+    return ((RES1 & 0x00FF) << 8) | ((RES0 >> 8) & 0x00FF);
+}
+
+/* TODO: implement hardware multiplication for 2.14 fixed point */
+/* (should be faster since the result only needs to be shifted by 2 */
+/* can tolerate the loss in precision */

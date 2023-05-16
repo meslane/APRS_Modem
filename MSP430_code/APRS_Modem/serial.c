@@ -293,9 +293,9 @@ void int_to_str(char* str, const long long data, const unsigned char len) {
     str[j] = '\0';
 }
 
-void print_binary(char b) {
+void print_binary(long long b, int n) {
     int i;
-    for (i = 7; i >= 0; i--) {
+    for (i = n; i >= 0; i--) {
         if (((b >> i) & 0x01) == 0x01) {
             putchar('1');
         }
@@ -416,4 +416,28 @@ long long str_to_int(char* str) {
     output *= sign;
 
     return output;
+}
+
+/* print an int as if it were a fixed-point number */
+void FXP_print(int f) {
+    const long long ref = 5000000;
+    unsigned long long decimal = 0;
+    int i;
+
+    if (f < 0) { //if signed
+        f -= 1;
+        f = ~f;
+        putchar('-');
+    }
+
+    print_dec((f >> 8) & 0x00FF, 3); //integer part
+
+    for (i = 0; i < 8; i++) {
+        if ((f >> (7 - i)) & 0x01 == 0x01) {
+            decimal += (ref >> i);
+        }
+    }
+
+    putchar('.');
+    print_dec(decimal, 7); //decimal part
 }

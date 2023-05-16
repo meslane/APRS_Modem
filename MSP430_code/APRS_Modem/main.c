@@ -658,6 +658,9 @@ int main(void) {
     P1SEL1 |= (1 << 5);
     init_ADC(5); //init for channel #5
 
+    P1DIR |= (0x01 << 4);
+
+    /*
     init_resistor_DAC();
     init_DSP_timer();
     init_PTT();
@@ -668,10 +671,24 @@ int main(void) {
 
     enum beacon_state gps_state = BEACON_START;
     enum UI_state ui_state = UI_START;
+    */
     unsigned long long tick = 0;
+    int a = 0x0580; //5.5
+    int pi = 0x0324;
+    int b = ~0x0324 + 1; //-3.14
+    int result;
     for(;;) {
-        gps_state = beacon_tick(gps_state, ui_state);
-        ui_state = UI_tick(ui_state);
+        //gps_state = beacon_tick(gps_state, ui_state);
+        //ui_state = UI_tick(ui_state);
+        P1OUT |= (0x01 << 4);
+        result = FXP_mul(b, pi);
+        P1OUT &= ~(0x01 << 4);
+        __no_operation();
+        P1OUT |= (0x01 << 4);
+        result = FXP_mul_hardware(b, pi);
+        P1OUT &= ~(0x01 << 4);
+        FXP_print(result);
+        putchars("\n\r");
 
         tick++;
     }

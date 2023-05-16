@@ -98,20 +98,23 @@ lp_filter = IIR_filter([0.035, 0.070, 0.035], [1, -1.41, 0.55])
 
 pll = PLL(22050.0, 1200.0)
 
+#mixer delay queue
 DELAY_NUM = 9 #(22050/1200)/2 = 9
 delay_queue = []
 for i in range(DELAY_NUM):
     delay_queue.append(0) #pre-populate delay queue
-    
-edge_queue = []
-for i in range(2):
-    edge_queue.append(0)
+
+#start flag search queue
+flag_queue = bitarray()
+for i in range(16):
+    flag_queue.append(1)
 
 output = []
 intermed = []
 input = []
 clk = []
 bits = []
+message = []
 
 '''
 MAIN DSP LOOP
@@ -120,11 +123,12 @@ samples_per_symbol = 18
 
 phase = samples_per_symbol - 1
 
-clock_index = 0 #sample every (22050/1200) = ~18 samples
-edge_period = 0
+bit_index = 0
+output_byte = 0
 
 index = 0
 indices = []
+dsp_state = 'FLAG_SEARCH' #states = 'FLAG_SEARCH', 'START_FLAG', 'MESSAGE', 'END_FLAG'
 for sample in data:
     input.append(sample)
     '''
@@ -164,56 +168,57 @@ for sample in data:
     pll_out = pll.loop(bit)
     clk.append(pll_out * 10000) #currently takes a couple of start flags to gain lock
     
+    '''
+    Bitstream Decoding (only on clock edges)
+    '''
     if (pll_out == 1): #sample
         bits.append(bit)
+       
+        #==state transitions==#
+        if (dsp_state == 'FLAG_SEARCH'):
+            if ba2int(flag_queue) == 0x0101: #detect start flag (and make sure it's not a fluke)
+                dsp_state = 'START_FLAG'
+                print("LOCKED")
+        elif (dsp_state == 'START_FLAG'):
+            if (bit_index == 0 and output_byte != 0x01):
+                dsp_state = 'MESSAGE'
+                print("IN MESSAGE")
+        elif (dsp_state == 'MESSAGE'):
+            if (bit_index == 0 and output_byte == 0x7F):
+                dsp_state = 'END_FLAG'
+                print("END FLAG REACHED")
+        elif (dsp_state == 'END_FLAG'):
+            if (bit_index == 0 and output_byte != 0x7F):
+                dsp_state = 'FLAG_SEARCH'
+                print("END FLAG COMPLETE")
+        
+        #==state actions==#
+        if (dsp_state == 'FLAG_SEARCH'):
+            flag_queue.append(bit)
+            flag_queue.pop(0)
+        elif (dsp_state == 'START_FLAG' or dsp_state == 'MESSAGE' or dsp_state == 'END_FLAG'):
+            if (bit_index == 0):
+                print(hex(output_byte))
+                
+                if (dsp_state == 'MESSAGE'):
+                    message.append(output_byte)
+                
+                output_byte = 0
+        
+            output_byte |= (bit << (7 - bit_index))
+            
+            #leave at end
+            if (bit_index == 7):
+                bit_index = 0
+            else: 
+                bit_index += 1
+            
 
     #end code
     index += 1
     indices.append(index)
 
-print(bits)
-
-flag_queue = bitarray()
-for i in range(16):
-    flag_queue.append(1)
-
-locked = False
-start = True
-end = False
-bit_index = 0
-output_byte = 0
-message = []
-for bit in bits:
-    if not locked:
-        print(hex(ba2int(flag_queue)))
-        if ba2int(flag_queue) == 0x0101: #detect start flag (and make sure it's not a fluke)
-            locked = True
-            print("LOCKED")
-            
-        flag_queue.append(bit)
-        flag_queue.pop(0)
-    
-    if locked:
-        output_byte |= (bit << (7 - bit_index))
-        
-        if (bit_index == 7):
-            print(hex(output_byte))
-            
-            if (start and output_byte != 0x01): #if out of flags
-                start = False
-                
-            if not start:
-                if (output_byte == 0x01 or output_byte == 0x7F): #detect end flag
-                    end = True
-                    
-                if not end:
-                    message.append(output_byte)
-            
-            output_byte = 0
-            bit_index = 0
-        else: 
-            bit_index += 1
-
+#print(bits)
 print([hex(x) for x in message])
 
 plt.plot(indices, input)

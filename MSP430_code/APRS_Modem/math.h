@@ -15,4 +15,7 @@ char get_bit(char c, const unsigned char n);
 
 unsigned char sine(unsigned int index);
 
+int FXP_mul(int a, int b);
+int FXP_mul_hardware(int a, int b);
+
 #endif /* MATH_H_ */
