@@ -43,47 +43,38 @@ class IIR_filter:
         
 #adapted from: https://github.com/mobilinkd/afsk-demodulator/blob/18914893d0853070788a37d986bbd58db08721aa//DigitalPLL.py
 #deleted the lock detector because we don't need it if there are enough start flags
+#deleted bit counter
+#deleted a bunch of other stuff too (call me Madman Muntz)
 class PLL:
     def __init__(self, sample_rate, symbol_rate):
         self.sample_rate = sample_rate
         self.symbol_rate = symbol_rate
         self.samples_per_symbol = sample_rate / symbol_rate
-        self.limit = self.samples_per_symbol / 2
+        self.limit = (self.samples_per_symbol / 2) * 0.1 #apply float scaling since MSP430 is limited to +/-2
         
-        self.loop_filter = IIR_filter([0.145, 0.145], [1.0, -0.71])
+        #self.loop_filter = IIR_filter([0.145, 0.145], [1.0, -0.71])
         
         self.count = 0
         self.last = 0
-        self.bits = 1.0
-        self.offset = 0.0
         
     def loop(self, sample):
         pulse = 0
         
-        if (sample != self.last or self.bits > 127): #detect transition and nudge pll
+        if (sample != self.last): #detect transition and nudge pll
             self.last = sample
             
             if (self.count > self.limit):
-                self.count -= self.samples_per_symbol
-                
-            self.offset = self.count / self.bits
-            if (self.offset < -2): #mimic saturation on MSP430
-                self.offset = -2
-            elif (self.offset > 2):
-                self.offset = 2
+                self.count -= (self.samples_per_symbol * 0.1)
             
-            j = self.loop_filter.filter(self.offset)
-            
-            self.count -= j * self.samples_per_symbol * 0.012
-            
-            self.bits = 1
+            #can we delete the loop filter? BIG IF TRUE
+            #self.count -= self.loop_filter.filter(self.count) * (self.samples_per_symbol * 0.1) #* 0.012
+            self.count -= self.count * (self.samples_per_symbol * 0.1) 
         else:
             if (self.count > self.limit):
                 pulse = 1
-                self.count -= self.samples_per_symbol
-                self.bits += 1
+                self.count -= (self.samples_per_symbol * 0.1)
         
-        self.count += 1.0
+        self.count += 0.1
         return pulse
         
 filename = str(input("filename> "))
@@ -128,6 +119,7 @@ clk = []
 bits = []
 message = []
 offset = []
+count = []
 
 for i in range(len(data)):
     data[i] += (2 ** 15) #add fake DC offset
@@ -182,7 +174,7 @@ for sample in data:
     PLL clock recovery
     '''
     pll_out = pll.loop(bit)
-    offset.append(pll.offset)
+    count.append(pll.count)
     clk.append(pll_out * 0.5) #currently takes a couple of start flags to gain lock
     
     '''
@@ -242,6 +234,6 @@ plt.plot(indices, input, label='Input')
 plt.plot(indices, intermed, label='Mixer output')
 plt.plot(indices, output, label='Comparator output')
 plt.plot(indices, clk, label='Sample clock')
-plt.plot(indices, offset, label='PLL offset')
+plt.plot(indices, count, label='PLL count')
 plt.legend()
 plt.show()
