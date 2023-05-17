@@ -51,5 +51,6 @@ long long str_to_int(char* str);
 void int_to_str(char* str, const long long data, const unsigned char len);
 
 void FXP_print(int f);
+void FXP_print_2_14(int f);
 
 #endif /* SERIAL_H_ */

@@ -673,21 +673,35 @@ int main(void) {
     enum UI_state ui_state = UI_START;
     */
     unsigned long long tick = 0;
-    int a = 0x0580; //5.5
-    int pi = 0x0324;
-    int b = ~0x0324 + 1; //-3.14
+
+    int sqrt_pi = 0x7170;
+    int half = ~0x2000 + 0x1;
     int result;
     for(;;) {
-        //gps_state = beacon_tick(gps_state, ui_state);
-        //ui_state = UI_tick(ui_state);
-        P1OUT |= (0x01 << 4);
-        result = FXP_mul(b, pi);
+        P1OUT |= (0x01 << 4); //test 16 multiplications
+        FXP_mul_2_14(sqrt_pi, half);
+        FXP_mul_2_14(sqrt_pi, half);
+        FXP_mul_2_14(sqrt_pi, half);
+        FXP_mul_2_14(sqrt_pi, half);
+        FXP_mul_2_14(sqrt_pi, half);
+        FXP_mul_2_14(sqrt_pi, half);
+        FXP_mul_2_14(sqrt_pi, half);
+        FXP_mul_2_14(sqrt_pi, half);
+        FXP_mul_2_14(sqrt_pi, half);
+        FXP_mul_2_14(sqrt_pi, half);
+        FXP_mul_2_14(sqrt_pi, half);
+        FXP_mul_2_14(sqrt_pi, half);
+        FXP_mul_2_14(sqrt_pi, half);
+        FXP_mul_2_14(sqrt_pi, half);
+        FXP_mul_2_14(sqrt_pi, half);
+        FXP_mul_2_14(sqrt_pi, half);
         P1OUT &= ~(0x01 << 4);
-        __no_operation();
-        P1OUT |= (0x01 << 4);
-        result = FXP_mul_hardware(b, pi);
-        P1OUT &= ~(0x01 << 4);
-        FXP_print(result);
+
+        result = FXP_mul_2_14(sqrt_pi, half);
+        FXP_print_2_14(result);
+        putchars("\n\r");
+        result = FXP_mul_2_14(half, half);
+        FXP_print_2_14(result);
         putchars("\n\r");
 
         tick++;

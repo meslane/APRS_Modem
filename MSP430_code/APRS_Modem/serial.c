@@ -441,3 +441,27 @@ void FXP_print(int f) {
     putchar('.');
     print_dec(decimal, 7); //decimal part
 }
+
+/* print 2.14 fixed point int */
+void FXP_print_2_14(int f) {
+    const long long ref = 5000000000000;
+    unsigned long long decimal = 0;
+    int i;
+
+    if (f < 0) { //if signed
+        f -= 1;
+        f = ~f;
+        putchar('-');
+    }
+
+    print_dec((f >> 14) & 0x0003, 1); //integer part
+
+    for (i = 0; i < 14; i++) {
+        if ((f >> (13 - i)) & 0x01 == 0x01) {
+            decimal += (ref >> i);
+        }
+    }
+
+    putchar('.');
+    print_dec(decimal, 13); //decimal part
+}

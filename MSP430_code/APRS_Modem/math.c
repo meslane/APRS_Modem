@@ -88,3 +88,11 @@ int FXP_mul_hardware(int a, int b) {
 /* TODO: implement hardware multiplication for 2.14 fixed point */
 /* (should be faster since the result only needs to be shifted by 2 */
 /* can tolerate the loss in precision */
+int FXP_mul_2_14(int a, int b) {
+    MPYS = a;
+    OP2 = b;
+
+    __no_operation();
+
+    return (RES1 << 2);
+}

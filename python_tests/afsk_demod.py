@@ -55,6 +55,7 @@ class PLL:
         self.count = 0
         self.last = 0
         self.bits = 1.0
+        self.offset = 0.0
         
     def loop(self, sample):
         pulse = 0
@@ -65,9 +66,13 @@ class PLL:
             if (self.count > self.limit):
                 self.count -= self.samples_per_symbol
                 
-            offset = self.count / self.bits
+            self.offset = self.count / self.bits
+            if (self.offset < -2): #mimic saturation on MSP430
+                self.offset = -2
+            elif (self.offset > 2):
+                self.offset = 2
             
-            j = self.loop_filter.filter(offset)
+            j = self.loop_filter.filter(self.offset)
             
             self.count -= j * self.samples_per_symbol * 0.012
             
@@ -93,8 +98,12 @@ print(data)
 '''
 DSP SECTION
 '''
-bp_filter = IIR_filter([0.34,  0, -0.34], [1, -1.17, 0.31])
-lp_filter = IIR_filter([0.035, 0.070, 0.035], [1, -1.41, 0.55])
+
+#bp_filter = IIR_filter([0.34,  0, -0.34], [1, -1.17, 0.31])
+bp_filter = IIR_filter([0.9929, -0.9929], [1, -0.9859])
+
+#lp_filter = IIR_filter([0.035, 0.070, 0.035], [1, -1.41, 0.55])
+lp_filter = IIR_filter([0.1472, 0.1472], [1, -0.7055])
 
 pll = PLL(22050.0, 1200.0)
 
@@ -115,6 +124,10 @@ input = []
 clk = []
 bits = []
 message = []
+offset = []
+
+for i in range(len(data)):
+    data[i] += (2 ** 15) #add fake DC offset
 
 '''
 MAIN DSP LOOP
@@ -130,6 +143,8 @@ index = 0
 indices = []
 dsp_state = 'FLAG_SEARCH' #states = 'FLAG_SEARCH', 'START_FLAG', 'MESSAGE', 'END_FLAG'
 for sample in data:
+    sample /= (2 ** 15) #normalize
+
     input.append(sample)
     '''
     IIR bandpass filter
@@ -139,7 +154,7 @@ for sample in data:
     '''
     Mixer and delay line
     '''
-    mixer_out = 6e-5 * bp_output * delay_queue[-1]
+    mixer_out = bp_output * delay_queue[-1]
 
     delay_queue.insert(0, bp_output) #insert new values
     delay_queue.pop()
@@ -155,18 +170,17 @@ for sample in data:
     Comparator
     '''
     bit = 1
-    comp_out = 30000
     if (lp_output > 0):
         bit = 0
-        comp_out = 0 #1 = 1200 Hz
     
-    output.append(comp_out)
+    output.append(bit)
 
     '''
     PLL clock recovery
     '''
     pll_out = pll.loop(bit)
-    clk.append(pll_out * 10000) #currently takes a couple of start flags to gain lock
+    offset.append(pll.offset)
+    clk.append(pll_out * 0.5) #currently takes a couple of start flags to gain lock
     
     '''
     Bitstream Decoding (only on clock edges)
@@ -221,8 +235,10 @@ for sample in data:
 #print(bits)
 print([hex(x) for x in message])
 
-plt.plot(indices, input)
-plt.plot(indices, intermed)
-plt.plot(indices, output)
-plt.plot(indices, clk)
+plt.plot(indices, input, label='Input')
+plt.plot(indices, intermed, label='Mixer output')
+plt.plot(indices, output, label='Comparator output')
+plt.plot(indices, clk, label='Sample clock')
+plt.plot(indices, offset, label='PLL offset')
+plt.legend()
 plt.show()
