@@ -10,7 +10,8 @@
 #include <math.h>
 #include <serial.h>
 
-#define SAMPLE_PERIOD 302
+#define TX_SAMPLE_PERIOD 302
+#define RX_SAMPLE_PERIOD 834
 
 unsigned char symbol_counter = 0;
 unsigned int phase_counter = 0;
@@ -28,57 +29,126 @@ struct data_queue symbol_queue = {.data = symbol_queue_array,
 
 char tx_queue_empty = 0;
 
+enum DSP_STATE dsp_state = DSP_TX;
+
 /* timer interrupt */
 #pragma vector=TIMER1_B0_VECTOR
 __interrupt void TIMER1_B0_VECTOR_ISR (void) {
-    //grab next symbol
-    if (symbol_counter == 0) {
-        if (bit_index == 0) { //grab new symbol
-            if (queue_len(&symbol_queue) == 0) {
-                tx_queue_empty = 1;
+    P1OUT |= (0x01 << 4); //for test only
+
+    static int sample;
+    static int output;
+
+    //highpass unit delays
+    static int HPF_delay_in = 0;
+    static int HPF_delay_out = 0;
+
+    //highpass output
+    static int HPF_out = 0;
+
+    //mixer delay queue
+    static int mixer_delay[4];
+    static unsigned char mixer_ptr = 0;
+
+    //mixer output
+    static int mixer_out;
+
+    //lowpass unit delays
+    static int LPF_delay_in = 0;
+    static int LPF_delay_out = 0;
+
+    //lowpass output
+    static int LPF_out = 0;
+
+    //comparator output
+    static int comp_out = 0;
+
+    switch(dsp_state) {
+    case DSP_TX:
+        //grab next symbol
+        if (symbol_counter == 0) {
+            if (bit_index == 0) { //grab new symbol
+                if (queue_len(&symbol_queue) == 0) {
+                    tx_queue_empty = 1;
+                }
+                else {
+                    current_symbol = pop(&symbol_queue);
+                }
             }
-            else {
-                current_symbol = pop(&symbol_queue);
+
+            current_bit = (current_symbol >> (7 - bit_index)) & 0x01;
+        }
+
+        //modulate and increment counter
+        if (tx_queue_empty == 0) {
+            set_resistor_DAC(sine(phase_counter));
+
+            if (current_bit == 1) { //1200 Hz
+                phase_counter += 41;
             }
+            else { //1 = 2200 Hz
+                phase_counter += 75;
+            }
+
+            if (phase_counter > 899) {
+                phase_counter -= 900;
+            }
+
+            symbol_counter++;
         }
 
-        current_bit = (current_symbol >> (7 - bit_index)) & 0x01;
-    }
+        //shift in next bit and reset counter if done
+        if (symbol_counter == 22) {
+            symbol_counter = 0;
 
-    //modulate and increment counter
-    if (tx_queue_empty == 0) {
-        set_resistor_DAC(sine(phase_counter));
-
-        if (current_bit == 1) { //1200 Hz
-            phase_counter += 41;
+            bit_index = ((bit_index < 7) ? (bit_index + 1) : 0);
         }
-        else { //1 = 2200 Hz
-            phase_counter += 75;
+        break;
+    case DSP_RX: //recieve routine
+        sample = (get_ADC_result() << 2); //scale to fixed point normalized (0 - 1)
+
+        //highpass IIR filter (DC block)
+        HPF_out = FXP_mul_2_14(sample, 0x3EF8) + FXP_mul_2_14(HPF_delay_in, 0xC108) - FXP_mul_2_14(HPF_delay_out, 0xC20F);
+        HPF_delay_in = sample;
+        HPF_delay_out = HPF_out;
+
+        //mixer detector
+        mixer_out = FXP_mul_2_14(HPF_out, mixer_delay[mixer_ptr]);
+        mixer_delay[mixer_ptr] = HPF_out; //add to delay queue
+        mixer_ptr = (mixer_ptr < 3) ? mixer_ptr + 1 : 0;
+
+        //lowpass IIR filter
+        LPF_out = FXP_mul_2_14(mixer_out, 0x12BF) + FXP_mul_2_14(LPF_delay_in, 0x12BF) - FXP_mul_2_14(LPF_delay_out, 0xE57D);
+        LPF_delay_in = mixer_out;
+        LPF_delay_out = LPF_out;
+
+        //comparator
+        if (LPF_out < 0) {
+            comp_out = 1;
+            P1OUT |= 0x02; //P1.1 for test only
+        } else {
+            comp_out = 0;
+            P1OUT &= ~0x02;
         }
 
-        if (phase_counter > 899) {
-            phase_counter -= 900;
-        }
-
-        symbol_counter++;
-    }
-
-    //shift in next bit and reset counter if done
-    if (symbol_counter == 22) {
-        symbol_counter = 0;
-
-        bit_index = ((bit_index < 7) ? (bit_index + 1) : 0);
+        //output
+        //set_resistor_DAC((HPF_out + 0x2000) >> 9);
+        break;
+    default:
+        break;
     }
 
     //reset interrupt
     TB1CCTL0 &= ~CCIFG;
+
+    P1OUT &= ~(0x01 << 4);
 }
 
 /* ADC */
 void init_ADC(const char channel) {
     ADCCTL0 &= ~ADCENC; //disable conversion
     ADCCTL0 &= ~ADCSHT; //clear sample and hold field
-    ADCCTL0 |= ADCSHT_2; //16 cycle sample and hold
+    ADCCTL0 |= ADCSHT_0; //4 cycle sample and hold
     ADCCTL0 |= ADCON; //ADC on
 
     ADCCTL1 |= ADCSSEL_2; //SMCLK clock source
@@ -133,9 +203,17 @@ void PTT_off(void) {
 }
 
 /* sampling timer */
-void init_DSP_timer(void) {
+void init_DSP_timer(enum DSP_STATE state) {
     TB1CCTL0 = CCIE; //interrupt mode
-    TB1CCR0 = SAMPLE_PERIOD; //sampling rate of approximately 26.4 kHz (THIS MUST BE PRECISE - makes or breaks ability to demodulate)
+
+    dsp_state = state;
+
+    if (state == DSP_TX) {
+        TB1CCR0 = TX_SAMPLE_PERIOD; //sampling rate of approximately 26.4 kHz (THIS MUST BE PRECISE - makes or breaks ability to demodulate)
+    } else {
+        TB1CCR0 = RX_SAMPLE_PERIOD; //period of approx. 9600 Hz
+    }
+
     TB1CTL = TBSSEL__SMCLK | ID_0 | TBCLR; //fast peripheral clock, no division, clear at start
 }
 

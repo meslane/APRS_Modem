@@ -659,6 +659,7 @@ int main(void) {
     init_ADC(5); //init for channel #5
 
     P1DIR |= (0x01 << 4);
+    P1DIR |= (0x01 << 1);
 
     /*
     init_resistor_DAC();
@@ -677,7 +678,13 @@ int main(void) {
     int sqrt_pi = 0x7170;
     int half = ~0x2000 + 0x1;
     int result;
+
+    init_DSP_timer(DSP_RX);
+    enable_DSP_timer();
+    init_resistor_DAC();
+
     for(;;) {
+        /*
         P1OUT |= (0x01 << 4); //test 16 multiplications
         FXP_mul_2_14(sqrt_pi, half);
         FXP_mul_2_14(sqrt_pi, half);
@@ -703,6 +710,11 @@ int main(void) {
         result = FXP_mul_2_14(half, half);
         FXP_print_2_14(result);
         putchars("\n\r");
+        */
+
+
+        //FXP_print_2_14(0xE57D);
+        //putchars("\n\r");
 
         tick++;
     }

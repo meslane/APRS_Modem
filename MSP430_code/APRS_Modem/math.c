@@ -96,3 +96,13 @@ int FXP_mul_2_14(int a, int b) {
 
     return (RES1 << 2);
 }
+
+/* saturated addition */
+int sat_add(int a, int b) {
+    return a+b<a ? 32767 : a+b;
+}
+
+/* saturated subtraction */
+int sat_sub(int a, int b) {
+    return a-b>a ? -32767 : a-b;
+}

@@ -19,4 +19,7 @@ int FXP_mul(int a, int b);
 int FXP_mul_hardware(int a, int b);
 int FXP_mul_2_14(int a, int b);
 
+int sat_add(int a, int b);
+int sat_sub(int a, int b);
+
 #endif /* MATH_H_ */

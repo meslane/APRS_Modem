@@ -13,6 +13,8 @@
 extern struct data_queue symbol_queue;
 extern char tx_queue_empty;
 
+enum DSP_STATE{DSP_TX, DSP_RX};
+
 void init_ADC(const char channel);
 unsigned int get_ADC_result(void);
 unsigned int ADC_to_millivolts(unsigned int adcval);
@@ -24,7 +26,7 @@ void init_PTT(void);
 void PTT_on(void);
 void PTT_off(void);
 
-void init_DSP_timer(void);
+void init_DSP_timer(enum DSP_STATE state);
 void enable_DSP_timer(void);
 void disable_DSP_timer(void);
 

@@ -98,17 +98,20 @@ print(data)
 '''
 DSP SECTION
 '''
+sample_rate = 9600
 
 #bp_filter = IIR_filter([0.34,  0, -0.34], [1, -1.17, 0.31])
-bp_filter = IIR_filter([0.9929, -0.9929], [1, -0.9859])
+#bp_filter = IIR_filter([0.9929, -0.9929], [1, -0.9859]) #22050
+bp_filter = IIR_filter([0.9839, -0.9839], [1, -0.9678])
 
 #lp_filter = IIR_filter([0.035, 0.070, 0.035], [1, -1.41, 0.55])
-lp_filter = IIR_filter([0.1472, 0.1472], [1, -0.7055])
+#lp_filter = IIR_filter([0.1472, 0.1472], [1, -0.7055]) #22050
+lp_filter = IIR_filter([0.2929, 0.2929], [1, -0.4142])
 
-pll = PLL(22050.0, 1200.0)
+pll = PLL(9600.0, 1200.0)
 
 #mixer delay queue
-DELAY_NUM = 9 #(22050/1200)/2 = 9
+DELAY_NUM = 4 #(9600/1200)/2 = 4
 delay_queue = []
 for i in range(DELAY_NUM):
     delay_queue.append(0) #pre-populate delay queue

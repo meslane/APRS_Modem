@@ -11,7 +11,7 @@ from matplotlib.ticker import EngFormatter
 formatter = EngFormatter(unit='Hz')
 fig = plt.figure()
 
-sampling_rate = 22050 #Hz
+sampling_rate = 9600 #Hz
 
 '''
 Input bandpass filter
