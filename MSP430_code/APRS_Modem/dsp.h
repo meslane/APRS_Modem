@@ -13,6 +13,9 @@
 extern struct data_queue symbol_queue;
 extern char tx_queue_empty;
 
+extern char rx_ready; //PLL has pulsed
+extern char rx_bit; //output from sampling
+
 enum DSP_STATE{DSP_TX, DSP_RX};
 
 void init_ADC(const char channel);

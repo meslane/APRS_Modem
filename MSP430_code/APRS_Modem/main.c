@@ -660,6 +660,7 @@ int main(void) {
 
     P1DIR |= (0x01 << 4);
     P1DIR |= (0x01 << 1);
+    P1DIR |= (0x01 << 3);
 
     /*
     init_resistor_DAC();
@@ -685,36 +686,16 @@ int main(void) {
 
     for(;;) {
         /*
-        P1OUT |= (0x01 << 4); //test 16 multiplications
-        FXP_mul_2_14(sqrt_pi, half);
-        FXP_mul_2_14(sqrt_pi, half);
-        FXP_mul_2_14(sqrt_pi, half);
-        FXP_mul_2_14(sqrt_pi, half);
-        FXP_mul_2_14(sqrt_pi, half);
-        FXP_mul_2_14(sqrt_pi, half);
-        FXP_mul_2_14(sqrt_pi, half);
-        FXP_mul_2_14(sqrt_pi, half);
-        FXP_mul_2_14(sqrt_pi, half);
-        FXP_mul_2_14(sqrt_pi, half);
-        FXP_mul_2_14(sqrt_pi, half);
-        FXP_mul_2_14(sqrt_pi, half);
-        FXP_mul_2_14(sqrt_pi, half);
-        FXP_mul_2_14(sqrt_pi, half);
-        FXP_mul_2_14(sqrt_pi, half);
-        FXP_mul_2_14(sqrt_pi, half);
-        P1OUT &= ~(0x01 << 4);
-
-        result = FXP_mul_2_14(sqrt_pi, half);
-        FXP_print_2_14(result);
+        putchars("Samples/symbol\n\r");
+        FXP_print_2_14(0x2000);
         putchars("\n\r");
-        result = FXP_mul_2_14(half, half);
-        FXP_print_2_14(result);
+        putchars("PLL Limit\n\r");
+        FXP_print_2_14(0x1000);
+        putchars("\n\r");
+        putchars("Tenth\n\r");
+        FXP_print_2_14(0x0400);
         putchars("\n\r");
         */
-
-
-        //FXP_print_2_14(0xE57D);
-        //putchars("\n\r");
 
         tick++;
     }

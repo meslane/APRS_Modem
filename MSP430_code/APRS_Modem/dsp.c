@@ -13,6 +13,10 @@
 #define TX_SAMPLE_PERIOD 302
 #define RX_SAMPLE_PERIOD 834
 
+#define PLL_LIMIT 0x1000 //~0.25
+#define PLL_SAMPLES_PER_SYMBOL 0x2000 //~0.5
+#define PLL_INCREMENT 0x0400 //0.0625
+
 unsigned char symbol_counter = 0;
 unsigned int phase_counter = 0;
 
@@ -28,6 +32,9 @@ struct data_queue symbol_queue = {.data = symbol_queue_array,
                                   .MAX_SIZE = 400};
 
 char tx_queue_empty = 0;
+
+char rx_ready; //PLL has pulsed
+char rx_bit; //output from sampling
 
 enum DSP_STATE dsp_state = DSP_TX;
 
@@ -62,6 +69,10 @@ __interrupt void TIMER1_B0_VECTOR_ISR (void) {
 
     //comparator output
     static int comp_out = 0;
+
+    //PLL
+    static int last_symbol = 0;
+    static int PLL_count = 0;
 
     switch(dsp_state) {
     case DSP_TX:
@@ -131,8 +142,27 @@ __interrupt void TIMER1_B0_VECTOR_ISR (void) {
             P1OUT &= ~0x02;
         }
 
-        //output
-        //set_resistor_DAC((HPF_out + 0x2000) >> 9);
+        //PLL goes here (God help me)
+        P1OUT &= ~0x08; //pll clock pulse
+        if (comp_out != last_symbol) { //nudge pll
+            last_symbol = comp_out;
+
+            if (PLL_count > PLL_LIMIT) {
+                PLL_count -= PLL_SAMPLES_PER_SYMBOL;
+            }
+
+            PLL_count -= FXP_mul_2_14(PLL_count, PLL_SAMPLES_PER_SYMBOL);
+        } else {
+            if (PLL_count > PLL_LIMIT) {
+                PLL_count -= PLL_SAMPLES_PER_SYMBOL;
+
+                rx_ready = 1; //indicate to main loop that we should sample
+                rx_bit = comp_out;
+                P1OUT |= 0x08;
+            }
+        }
+        PLL_count += PLL_INCREMENT; //increment PLL by ~0.0625
+
         break;
     default:
         break;

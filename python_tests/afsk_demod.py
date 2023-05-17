@@ -50,7 +50,7 @@ class PLL:
         self.sample_rate = sample_rate
         self.symbol_rate = symbol_rate
         self.samples_per_symbol = sample_rate / symbol_rate
-        self.limit = (self.samples_per_symbol / 2) * 0.1 #apply float scaling since MSP430 is limited to +/-2
+        self.limit = (self.samples_per_symbol / 2) * 0.0625 #apply float scaling since MSP430 is limited to +/-2
         
         #self.loop_filter = IIR_filter([0.145, 0.145], [1.0, -0.71])
         
@@ -64,17 +64,17 @@ class PLL:
             self.last = sample
             
             if (self.count > self.limit):
-                self.count -= (self.samples_per_symbol * 0.1)
+                self.count -= (self.samples_per_symbol * 0.0625)
             
             #can we delete the loop filter? BIG IF TRUE
             #self.count -= self.loop_filter.filter(self.count) * (self.samples_per_symbol * 0.1) #* 0.012
-            self.count -= self.count * (self.samples_per_symbol * 0.1) 
+            self.count -= self.count * (self.samples_per_symbol * 0.0625) 
         else:
             if (self.count > self.limit):
                 pulse = 1
-                self.count -= (self.samples_per_symbol * 0.1)
+                self.count -= (self.samples_per_symbol * 0.0625)
         
-        self.count += 0.1
+        self.count += 0.0625
         return pulse
         
 filename = str(input("filename> "))
