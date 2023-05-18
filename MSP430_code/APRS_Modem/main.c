@@ -644,7 +644,9 @@ enum UI_state UI_tick(enum UI_state state) {
 }
 
 char message[400];
-enum RX_state{RX_START, RX_UNLOCKED, RX_START_FLAG, RX_MESSAGE, RX_END_FLAG, RX_DECODE};
+char output[400];
+
+enum RX_state{RX_START, RX_UNLOCKED, RX_START_FLAG, RX_MESSAGE, RX_END_FLAG, RX_DECODE, RX_RESET};
 enum RX_state RX_tick(enum RX_state state) {
     static long flag_queue = 0xFFFFFFFF;
     static unsigned char bit_index = 0;
@@ -672,25 +674,29 @@ enum RX_state RX_tick(enum RX_state state) {
         }
         break;
     case RX_MESSAGE:
-        if (bit_index == 0 && byte == 0x7F) { //detect end flag
+        if (bit_index == 0 && (byte == 0x7F | byte == 0x01)) { //detect end flag
             state = RX_END_FLAG;
             putchars("END\n\r");
-        } else if (message_index >= 400) { //if overflow message buffer
+        } else if (message_index >= 400 || (bit_index == 0 && byte == 0x00)) { //if overflow message buffer or bad packet data
+            /*
             message_index = 0;
-            state = RX_DECODE;
+            bit_index = 0;
+            byte = 0x01; //so it doesn't immediately go to message
+            */
+            state = RX_RESET;
             putchars("FAILED\n\r");
         }
         break;
     case RX_END_FLAG:
-        if (bit_index == 0 && byte != 0x7F) { //if end flags are over
+        if (bit_index == 0 && (byte != 0x7F && byte != 0x01)) { //if end flags are over
             state = RX_DECODE; //go to decode now that end flags are done
             putchars("UNLOCK\n\r");
         }
         break;
     case RX_DECODE:
-        message_index = 0; //reset for next pass
-        bit_index = 0;
-        byte = 0x01; //so it doesn't immediately go to message
+        state = RX_RESET;
+        break;
+    case RX_RESET:
         state = RX_UNLOCKED;
         break;
     default:
@@ -733,6 +739,22 @@ enum RX_state RX_tick(enum RX_state state) {
             putchar(',');
         }
         putchars("\n\r");
+
+        message_index = demod_AX_25_packet(output, message, message_index);
+
+        for (i = 0; i < message_index; i++) {
+            if (output[i] >= 32) {
+                putchar(output[i]);
+            } else {
+                putchar('#');
+            }
+        }
+        putchars("\n\r");
+        break;
+    case RX_RESET:
+        message_index = 0; //reset for next pass
+        bit_index = 0;
+        byte = 0x01; //so it doesn't immediately go to message
         break;
     default:
         break;

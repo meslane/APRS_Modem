@@ -28,7 +28,9 @@ void print_bitstream_bytes(struct bitstream* s);
 unsigned int get_len(struct bitstream* s);
 
 void stuff_bitstream(struct bitstream* output, struct bitstream* input);
+void unstuff_bitstream(struct bitstream* output, struct bitstream* input);
 void bitstream_NRZ_to_NRZI(struct bitstream* s);
+void bitstream_NRZI_to_NRZ(struct bitstream* s);
 void bitstream_add_flags(struct bitstream* output, struct bitstream* input, unsigned char num_start_flags, unsigned char num_end_flags);
 
 void array_to_bitstream(struct bitstream* output, char* input, unsigned int len);
@@ -52,5 +54,6 @@ void flip_bit_order(char* data, unsigned int len);
 unsigned int crc_16(char* buf, unsigned int len);
 
 unsigned int make_AX_25_packet(char* output, char* dest, char* src, char* digipeaters, char* payload, unsigned int num_start_flags, unsigned int num_end_flags);
+unsigned int demod_AX_25_packet(char* output, char* NRZI_bytes, unsigned int len);
 
 #endif /* PACKET_H_ */

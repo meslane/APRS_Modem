@@ -306,6 +306,36 @@ void stuff_bitstream(struct bitstream* output, struct bitstream* input) {
     }
 }
 
+//remove a zero after every fifth bit
+void unstuff_bitstream(struct bitstream* output, struct bitstream* input) {
+    unsigned int i;
+    unsigned char ones = 0;
+    char skip;
+    char temp;
+
+    clear_bitstream(output);
+
+    for (i=0;i<get_len(input);i++) {
+        temp = peek_bit(input, i);
+        if (temp == 1) {
+            ones++;
+        } else {
+            ones = 0;
+        }
+
+        if (skip == 1) {
+            skip = 0;
+        } else {
+            push_bit(output, temp); //don't push zeros that follow 5 ones
+        }
+
+        if (ones == 5) {
+            skip = 1;
+            ones = 0;
+        }
+    }
+}
+
 void bitstream_NRZ_to_NRZI(struct bitstream* s) {
     char current = 0x01; //starting level of 1
 
@@ -318,6 +348,23 @@ void bitstream_NRZ_to_NRZI(struct bitstream* s) {
             current ^= 1; //flip current
             set_stream_bit(s, i, current);
         }
+    }
+}
+
+void bitstream_NRZI_to_NRZ(struct bitstream* s) {
+    char prev = 0x01;
+    char curr;
+
+    unsigned int i;
+
+    for (i=0;i<get_len(s);i++) {
+        curr = peek_bit(s, i);
+        if (curr != prev) {
+            set_stream_bit(s, i, 0);
+        } else {
+            set_stream_bit(s, i, 1);
+        }
+        prev = curr;
     }
 }
 
@@ -387,4 +434,86 @@ unsigned int make_AX_25_packet(char* output, char* dest, char* src, char* digipe
     len = bitstream_to_array(output, &bits);
 
     return len;
+}
+
+unsigned int demod_AX_25_packet(char* output, char* NRZI_bytes, unsigned int len) {
+    unsigned int i;
+    unsigned int in_pointer = 0;
+    unsigned int out_pointer = 0;
+    char last;
+    unsigned char number;
+
+    char bits_array[400] = {0};
+    char bits_array2[400] = {0};
+
+    char temp[400];
+
+    struct bitstream bits = {
+                             .bytes = bits_array,
+                             .bit_pointer = 7,
+                             .byte_pointer = 0
+    };
+
+    struct bitstream bits2 = {
+                             .bytes = bits_array2,
+                             .bit_pointer = 7,
+                             .byte_pointer = 0
+    };
+
+    array_to_bitstream(&bits, NRZI_bytes, len); //len is in bytes
+
+    //convert back to standard encoding
+    bitstream_NRZI_to_NRZ(&bits);
+    unstuff_bitstream(&bits2, &bits);
+
+    len = bitstream_to_array(temp, &bits2);
+    flip_bit_order(temp, len);
+
+    //extract callsigns
+    last = 0;
+    in_pointer = 0;
+    out_pointer = 0;
+    while (last == 0) {
+        for (i=0;i<7;i++) {
+            if (i < 6) {
+                if ((temp[in_pointer] >> 1) > 0x20) { //append ascii
+                    output[out_pointer] = (temp[in_pointer] >> 1); //append if there is info
+                    out_pointer++;
+                }
+            } else { //i == 6 (get number if any)
+                if (temp[in_pointer] & 0x01 == 0x01) { //if last callsign
+                    last = 1;
+                }
+                number = (temp[in_pointer] >> 1) & 0x0F;
+
+                if (number > 0) {
+                   output[out_pointer] = '-'; //append hyphen
+                   out_pointer++;
+
+                   if (number > 9) {
+                       output[out_pointer] = '1';
+                       out_pointer++;
+                   }
+
+                   output[out_pointer] = (number % 10) + 0x30; //ascii offset
+                   out_pointer++;
+                }
+
+            }
+            in_pointer++;
+        }
+
+        output[out_pointer] = '|';
+        out_pointer++;
+    }
+
+    in_pointer += 2; //skip control and ID
+
+    while (in_pointer < (len - 2)) { //get up to CRC
+        output[out_pointer] = temp[in_pointer];
+        out_pointer++;
+        in_pointer++;
+    }
+
+    return out_pointer;
 }

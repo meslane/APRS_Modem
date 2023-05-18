@@ -28,9 +28,10 @@
 
 ~== Current Bugs (TOFIX) ==~
 -Occasional false positives happen where a start flag is detected and the RX routine hangs until message buffer overflow
--Start flags are getting appended to the packet
+-Hitting ISR trap during sampling (doesn't happen any more but I won't call it solved)
 
 ~== Fixed Bugs ==~
+-Start flags are getting appended to the packet
 -Decoding would fail unless a print statement was in the dsp isr
 	-Fixed by slightly lengthening the sampling period
 -Whether or not a packet is decoded by multimon seems to be a function of its contents
