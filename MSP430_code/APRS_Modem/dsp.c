@@ -13,8 +13,8 @@
 #define TX_SAMPLE_PERIOD 302
 #define RX_SAMPLE_PERIOD 834
 
-#define PLL_LIMIT 0x1000 //~0.25
-#define PLL_SAMPLES_PER_SYMBOL 0x2000 //~0.5
+#define PLL_LIMIT 0x1000 //0.25
+#define PLL_SAMPLES_PER_SYMBOL 0x2000 //0.5
 #define PLL_INCREMENT 0x0400 //0.0625
 
 unsigned char symbol_counter = 0;
@@ -43,8 +43,8 @@ enum DSP_STATE dsp_state = DSP_TX;
 __interrupt void TIMER1_B0_VECTOR_ISR (void) {
     P1OUT |= (0x01 << 4); //for test only
 
+    //ADC input
     static int sample;
-    static int output;
 
     //highpass unit delays
     static int HPF_delay_in = 0;
@@ -68,7 +68,7 @@ __interrupt void TIMER1_B0_VECTOR_ISR (void) {
     static int LPF_out = 0;
 
     //comparator output
-    static int comp_out = 0;
+    static char comp_out = 0;
 
     //PLL
     static int last_symbol = 0;
@@ -142,9 +142,9 @@ __interrupt void TIMER1_B0_VECTOR_ISR (void) {
             P1OUT &= ~0x02;
         }
 
-        //PLL goes here (God help me)
+        //PLL
         P1OUT &= ~0x08; //pll clock pulse
-        if (comp_out != last_symbol) { //nudge pll
+        if (comp_out != last_symbol) { //nudge pll on rising/falling edge
             last_symbol = comp_out;
 
             if (PLL_count > PLL_LIMIT) {
@@ -157,11 +157,11 @@ __interrupt void TIMER1_B0_VECTOR_ISR (void) {
                 PLL_count -= PLL_SAMPLES_PER_SYMBOL;
 
                 rx_ready = 1; //indicate to main loop that we should sample
-                rx_bit = comp_out;
+                rx_bit = comp_out; //send bit to sample
                 P1OUT |= 0x08;
             }
         }
-        PLL_count += PLL_INCREMENT; //increment PLL by ~0.0625
+        PLL_count += PLL_INCREMENT; //increment PLL by 0.0625
 
         break;
     default:

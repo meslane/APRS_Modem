@@ -643,6 +643,103 @@ enum UI_state UI_tick(enum UI_state state) {
     return state;
 }
 
+char message[400];
+enum RX_state{RX_START, RX_UNLOCKED, RX_START_FLAG, RX_MESSAGE, RX_END_FLAG, RX_DECODE};
+enum RX_state RX_tick(enum RX_state state) {
+    static long flag_queue = 0xFFFFFFFF;
+    static unsigned char bit_index = 0x00;
+    static char byte = 0x00; //data byte grabbed from routine
+    static unsigned int message_index = 0;
+
+    unsigned int i;
+
+    /* transitions */
+    switch(state) {
+    case RX_START:
+        state = RX_UNLOCKED;
+        break;
+    case RX_UNLOCKED:
+        if (flag_queue == 0x01010101) { //consistent start flag
+            //flag_queue = 0xFFFFFFFF; //reset for next cycle
+            state = RX_START_FLAG;
+            putchars("LOCK\n\r");
+        }
+        break;
+    case RX_START_FLAG:
+        if (bit_index == 0 && byte != 0x01) { //if no longer getting start flags
+            state = RX_MESSAGE;
+            putchars("MSG\n\r");
+        }
+        break;
+    case RX_MESSAGE:
+        if (bit_index == 0 && byte == 0x7F) { //detect end flag
+            state = RX_END_FLAG;
+            putchars("END\n\r");
+        } else if (message_index >= 400) { //if overflow message buffer
+            message_index = 0;
+            state = RX_DECODE;
+        }
+        break;
+    case RX_END_FLAG:
+        if (bit_index == 0 && byte != 0x7F) { //if end flags are over
+            state = RX_DECODE; //go to decode now that end flags are done
+            putchars("UNLOCK\n\r");
+        }
+        break;
+    case RX_DECODE:
+        message_index = 0; //reset for next pass
+        bit_index = 0;
+        byte = 0;
+        state = RX_UNLOCKED;
+        break;
+    default:
+        state = RX_START;
+        break;
+    }
+
+    /* actions */
+    switch(state) {
+    case RX_UNLOCKED:
+        if (rx_ready == 1) { //if PLL has triggered a bit sample
+            rx_ready = 0;
+
+            flag_queue = ((flag_queue << 1) & 0xFFFFFFFE) | rx_bit; //shift flag queue and add RX bit to end
+        }
+        break;
+    case RX_START_FLAG:
+    case RX_MESSAGE:
+    case RX_END_FLAG:
+        if (rx_ready == 1) { //if PLL has triggered a bit sample
+            rx_ready = 0;
+
+            if (bit_index == 0) {
+                if (state == RX_MESSAGE) {
+                    message[message_index] = byte;
+                    message_index++;
+                }
+
+                byte = 0;
+            }
+
+            byte |= (rx_bit << (7 - bit_index));
+
+            bit_index = (bit_index < 7) ? bit_index + 1 : 0; //increment if less than 7, otherwise reset
+        }
+        break;
+    case RX_DECODE:
+        for (i = 0; i < message_index; i++) {
+            print_hex(message[i]);
+            putchar(',');
+        }
+        putchars("\n\r");
+        break;
+    default:
+        break;
+    }
+
+    return state;
+}
+
 int main(void) {
     WDTCTL = WDTPW | WDTHOLD;	//stop watchdog timer
     PM5CTL0 &= ~LOCKLPM5; //disable high-impedance GPIO mode
@@ -674,28 +771,31 @@ int main(void) {
     enum beacon_state gps_state = BEACON_START;
     enum UI_state ui_state = UI_START;
     */
-    unsigned long long tick = 0;
 
-    int sqrt_pi = 0x7170;
-    int half = ~0x2000 + 0x1;
-    int result;
+    enum RX_state rx_state = RX_START;
+
+    unsigned long long tick = 0;
 
     init_DSP_timer(DSP_RX);
     enable_DSP_timer();
     init_resistor_DAC();
 
+    putchars("\n\r");
     for(;;) {
+
+        rx_state = RX_tick(rx_state);
+
         /*
-        putchars("Samples/symbol\n\r");
-        FXP_print_2_14(0x2000);
-        putchars("\n\r");
-        putchars("PLL Limit\n\r");
-        FXP_print_2_14(0x1000);
-        putchars("\n\r");
-        putchars("Tenth\n\r");
-        FXP_print_2_14(0x0400);
-        putchars("\n\r");
+        if (rx_ready == 1) {
+            rx_ready = 0;
+            if (rx_bit == 1) {
+                putchar('1');
+            } else {
+                putchar('0');
+            }
+        }
         */
+
 
         tick++;
     }
