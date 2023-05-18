@@ -19,12 +19,16 @@
 -LCD + rotart encoder user interface
 -Persistent settings
 -TX jitter setting
+-RX capabilites
 
 ~== Planned Functionality ==~
--RX capabilities
+-RX Decoding
+-PCB
 -3D-printed enclosure
 
 ~== Current Bugs (TOFIX) ==~
+-Occasional false positives happen where a start flag is detected and the RX routine hangs until message buffer overflow
+-Start flags are getting appended to the packet
 
 ~== Fixed Bugs ==~
 -Decoding would fail unless a print statement was in the dsp isr

@@ -647,8 +647,8 @@ char message[400];
 enum RX_state{RX_START, RX_UNLOCKED, RX_START_FLAG, RX_MESSAGE, RX_END_FLAG, RX_DECODE};
 enum RX_state RX_tick(enum RX_state state) {
     static long flag_queue = 0xFFFFFFFF;
-    static unsigned char bit_index = 0x00;
-    static char byte = 0x00; //data byte grabbed from routine
+    static unsigned char bit_index = 0;
+    static char byte = 0x01; //data byte grabbed from routine
     static unsigned int message_index = 0;
 
     unsigned int i;
@@ -678,6 +678,7 @@ enum RX_state RX_tick(enum RX_state state) {
         } else if (message_index >= 400) { //if overflow message buffer
             message_index = 0;
             state = RX_DECODE;
+            putchars("FAILED\n\r");
         }
         break;
     case RX_END_FLAG:
@@ -689,7 +690,7 @@ enum RX_state RX_tick(enum RX_state state) {
     case RX_DECODE:
         message_index = 0; //reset for next pass
         bit_index = 0;
-        byte = 0;
+        byte = 0x01; //so it doesn't immediately go to message
         state = RX_UNLOCKED;
         break;
     default:
