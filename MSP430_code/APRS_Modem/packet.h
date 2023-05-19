@@ -50,6 +50,7 @@ void insert_bytes(char* dest, char* src, unsigned int index, unsigned int len);
 
 unsigned int generate_AX_25_packet_bytes(char* output, char* dest, char* src, char* digipeaters, char* payload);
 void flip_bit_order(char* data, unsigned int len);
+unsigned char num_ones(long var, unsigned char n);
 
 unsigned int crc_16(char* buf, unsigned int len);
 

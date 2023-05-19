@@ -260,6 +260,18 @@ void flip_bit_order(char* data, unsigned int len) {
     }
 }
 
+//count the number of ones in a giver var up to n bits
+unsigned char num_ones(long var, unsigned char n) {
+    unsigned char i;
+    unsigned char ones = 0;
+
+    for (i=0;i<n;i++) {
+        ones += ((var >> i) & 0x01); //1 if true, 0 if not
+    }
+
+    return ones;
+}
+
 //calculate the 16 bit CRC of a given sequence
 //adapted from: https://stackoverflow.com/a/25256043
 unsigned int crc_16(char *buf, unsigned int len) {
@@ -448,6 +460,10 @@ unsigned int demod_AX_25_packet(char* output, char* NRZI_bytes, unsigned int len
 
     char temp[400];
 
+    unsigned int crc;
+    unsigned int packet_crc;
+    unsigned int temp_crc;
+
     struct bitstream bits = {
                              .bytes = bits_array,
                              .bit_pointer = 7,
@@ -460,6 +476,10 @@ unsigned int demod_AX_25_packet(char* output, char* NRZI_bytes, unsigned int len
                              .byte_pointer = 0
     };
 
+    if (len < 17) { //invalid packet
+        return 0;
+    }
+
     array_to_bitstream(&bits, NRZI_bytes, len); //len is in bytes
 
     //convert back to standard encoding
@@ -467,13 +487,45 @@ unsigned int demod_AX_25_packet(char* output, char* NRZI_bytes, unsigned int len
     unstuff_bitstream(&bits2, &bits);
 
     len = bitstream_to_array(temp, &bits2);
+    len--; //remove extra byte
+
+    crc = ~crc_16(temp, len - 2); //calculate CRC from data (but not the CRC itself)
+
+    //flip bits
+    temp_crc = crc;
+    crc = 0x0000;
+    for(i=0;i<16;i++) {
+        crc |= ((temp_crc >> (15-i)) & 0x01) << i;
+    }
+
     flip_bit_order(temp, len);
+
+    packet_crc = (((int)temp[len-1] << 8) & 0xFF00) | temp[len-2];
+
+    if (crc == packet_crc) { //check against recovered CRC
+        putchars("CRC PASSED\n\r");
+    } else {
+        putchars("CRC FAILED\n\r");
+        print_dec(crc, 5);
+        putchars("\n\r");
+        print_dec(packet_crc, 5);
+        putchars("\n\r");
+    }
+
+    putchars("NRZ:\n\r");
+
+    for (i=0;i<len;i++) { //debug print
+        print_hex(temp[i]);
+        putchar(',');
+    }
+    putchars("\n\r");
+
+    in_pointer = 0;
+    out_pointer = 0;
 
     //extract callsigns
     last = 0;
-    in_pointer = 0;
-    out_pointer = 0;
-    while (last == 0) {
+    while (last == 0 && (in_pointer < (len - 7))) { //make sure we don't violate any array bounds
         for (i=0;i<7;i++) {
             if (i < 6) {
                 if ((temp[in_pointer] >> 1) > 0x20) { //append ascii
@@ -509,6 +561,7 @@ unsigned int demod_AX_25_packet(char* output, char* NRZI_bytes, unsigned int len
 
     in_pointer += 2; //skip control and ID
 
+    //extract packet body
     while (in_pointer < (len - 2)) { //get up to CRC
         output[out_pointer] = temp[in_pointer];
         out_pointer++;

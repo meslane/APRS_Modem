@@ -192,13 +192,14 @@ def print_bitarray(b):
             temp = 0
 
 msg = str(input('>'))
+print(bytes(msg,'UTF-8'))
 bits = encodeAPRS(dest=b'APRS', callsign=b'W6NXP', digi=[b'WIDE1-1',b'WIDE2-1'], info=bytes(msg,'UTF-8'))
 print(bits)
 print_bitarray(bits)
 
 sig, ph, fs, i = [], 0, 0, 0
 while i < len(bits):
-    sig_frag, ph, fs, i = afsk(bits, 4096, i, ph) # generate 4kB at a time
+    sig_frag, ph, fs, i = afsk(bits, 4096*2, i, ph) # generate 4kB at a time
     sig = np.concatenate((sig, sig_frag)) # send using DMA in C++
 sig = sig.astype(np.uint8)
 

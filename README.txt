@@ -28,7 +28,7 @@
 
 ~== Current Bugs (TOFIX) ==~
 -Occasional false positives happen where a start flag is detected and the RX routine hangs until message buffer overflow
--Hitting ISR trap during sampling (doesn't happen any more but I won't call it solved)
+-Hitting ISR trap during sampling
 
 ~== Fixed Bugs ==~
 -Start flags are getting appended to the packet

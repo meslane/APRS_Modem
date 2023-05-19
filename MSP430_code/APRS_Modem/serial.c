@@ -170,7 +170,7 @@ void init_UART_UCA1(unsigned long baud) {
     }
 
     UCA1CTLW0 &= ~UCSWRST;                    // Initialize eUSCI
-    UCA1IE |= UCRXIE;                         // Enable USCI_A0 RX interrupt
+    UCA1IE |= UCRXIE;                         // Enable USCI_A1 RX interrupt
 }
 
 /* init UART (GPS UART) */

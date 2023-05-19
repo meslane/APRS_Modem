@@ -674,21 +674,21 @@ enum RX_state RX_tick(enum RX_state state) {
         }
         break;
     case RX_MESSAGE:
-        if (bit_index == 0 && (byte == 0x7F | byte == 0x01)) { //detect end flag
+        if ((flag_queue & 0x000000FF) == 0x01 || (flag_queue & 0x000000FF) == 0x7F) { //detect end flag
+            if (bit_index == 0 && (flag_queue & 0x000000FF) == 0x7F) {
+                message[message_index] = 0x00;
+                message_index++; //add extra byte
+            }
+
             state = RX_END_FLAG;
             putchars("END\n\r");
         } else if (message_index >= 400 || (bit_index == 0 && byte == 0x00)) { //if overflow message buffer or bad packet data
-            /*
-            message_index = 0;
-            bit_index = 0;
-            byte = 0x01; //so it doesn't immediately go to message
-            */
             state = RX_RESET;
             putchars("FAILED\n\r");
         }
         break;
     case RX_END_FLAG:
-        if (bit_index == 0 && (byte != 0x7F && byte != 0x01)) { //if end flags are over
+        if (num_ones(flag_queue, 8) != 1 && num_ones(flag_queue, 8) != 7) { //if end flags are over
             state = RX_DECODE; //go to decode now that end flags are done
             putchars("UNLOCK\n\r");
         }
@@ -731,9 +731,12 @@ enum RX_state RX_tick(enum RX_state state) {
             byte |= (rx_bit << (7 - bit_index));
 
             bit_index = (bit_index < 7) ? bit_index + 1 : 0; //increment if less than 7, otherwise reset
+
+            flag_queue = ((flag_queue << 1) & 0xFFFFFFFE) | rx_bit; //do flag queue
         }
         break;
     case RX_DECODE:
+        putchars("NRZI:\n\r");
         for (i = 0; i < message_index; i++) {
             print_hex(message[i]);
             putchar(',');
@@ -742,6 +745,7 @@ enum RX_state RX_tick(enum RX_state state) {
 
         message_index = demod_AX_25_packet(output, message, message_index);
 
+        putchars("Message:\n\r");
         for (i = 0; i < message_index; i++) {
             if (output[i] >= 32) {
                 putchar(output[i]);
@@ -771,7 +775,7 @@ int main(void) {
     Software_Trim();
     init_clock();
     init_UART_UCA1(115200); //terminal output
-    init_UART_UCA0(9600); //GPS module
+    //init_UART_UCA0(9600); //GPS module
 
     //set P1.5 to ADC input
     P1SEL0 |= (1 << 5);
@@ -807,18 +811,6 @@ int main(void) {
     for(;;) {
 
         rx_state = RX_tick(rx_state);
-
-        /*
-        if (rx_ready == 1) {
-            rx_ready = 0;
-            if (rx_bit == 1) {
-                putchar('1');
-            } else {
-                putchar('0');
-            }
-        }
-        */
-
 
         tick++;
     }
