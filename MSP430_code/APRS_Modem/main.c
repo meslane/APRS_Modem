@@ -802,15 +802,35 @@ int main(void) {
     enum RX_state rx_state = RX_START;
 
     unsigned long long tick = 0;
+    unsigned int pkt_len;
+    int i = 0;
 
-    init_DSP_timer(DSP_RX);
-    enable_DSP_timer();
+    char packet[400];
+
+    //init_DSP_timer(DSP_RX);
+    //enable_DSP_timer();
+    init_DSP_timer(DSP_TX);
     init_resistor_DAC();
 
     putchars("\n\r");
     for(;;) {
+        pkt_len = make_AX_25_packet(packet, "APRS", "W6NXP", "WIDE1-1", "WHAT HATH GOD WROUGHT", 32, 32);
+        push_packet(&symbol_queue, packet, pkt_len);
+        enable_DSP_timer();
 
-        rx_state = RX_tick(rx_state);
+        while(tx_queue_empty != 1);
+
+        disable_DSP_timer();
+        PTT_off();
+        tx_queue_empty = 0;
+        TX_ongoing = 0;
+
+        for (i=0;i<10000;i++) {
+            __no_operation(); //delay
+        }
+
+
+        //rx_state = RX_tick(rx_state);
 
         tick++;
     }
