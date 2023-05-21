@@ -19,19 +19,19 @@
 -LCD + rotart encoder user interface
 -Persistent settings
 -TX jitter setting
--RX capabilites
+-RX capabilites + decoding + CRC checking
 
 ~== Planned Functionality ==~
--RX Decoding
 -PCB
 -3D-printed enclosure
 
 ~== Current Bugs (TOFIX) ==~
--Occasional false positives happen where a start flag is detected and the RX routine hangs until message buffer overflow
--Hitting ISR trap during sampling
 
 ~== Fixed Bugs ==~
--Start flags are getting appended to the packet
+-Hitting ISR trap during sampling
+	-Fixed by adding bounds checking to packet processing coded
+-Occasional false positives happen where a start flag is detected and the RX routine hangs until message buffer overflow
+	-Fixed by adding check if bit index is 0 and end flag is 0x7F
 -Decoding would fail unless a print statement was in the dsp isr
 	-Fixed by slightly lengthening the sampling period
 -Whether or not a packet is decoded by multimon seems to be a function of its contents
