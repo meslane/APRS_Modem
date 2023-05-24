@@ -803,7 +803,7 @@ int main(void) {
 
     unsigned long long tick = 0;
     unsigned int pkt_len;
-    int i = 0;
+    unsigned long long i = 0;
 
     char packet[400];
 
@@ -814,7 +814,7 @@ int main(void) {
 
     putchars("\n\r");
     for(;;) {
-        pkt_len = make_AX_25_packet(packet, "APRS", "W6NXP", "WIDE1-1", "WHAT HATH GOD WROUGHT", 32, 32);
+        pkt_len = make_AX_25_packet(packet, "APRS", "W6NXP", "WIDE1-1", "The quick brown fox jumps over the lazy dog!", 32, 32);
         push_packet(&symbol_queue, packet, pkt_len);
         enable_DSP_timer();
 
@@ -825,7 +825,7 @@ int main(void) {
         tx_queue_empty = 0;
         TX_ongoing = 0;
 
-        for (i=0;i<10000;i++) {
+        for (i=0;i<240000;i++) {
             __no_operation(); //delay
         }
 
