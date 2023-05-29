@@ -146,34 +146,18 @@ while True:
     '''
     Bitwise packet encoding
     '''
-    print(packet_bytes)
     flip_bit_order(packet_bytes)
-    print(packet_bytes)
     
     crc = ~crc_16(packet_bytes) & 0xFFFF
-    
-    print(hex(crc))
+    print("CRC: {}".format(hex(crc)))
     
     packet_bytes.append((crc >> 8) & 0xFF)
     packet_bytes.append(crc & 0xFF)
-    
-    print(packet_bytes)
-    
     packet_bits = bitstring.BitArray(packet_bytes)
-    
-    print(packet_bits.bin)
-    
     packet_bits = stuff_bits(packet_bits)
-    
-    print(packet_bits.bin)
-    
     packet_bits = NRZ_to_NRZI(packet_bits)
-    
-    print(packet_bits.bin)
-    
     packet_bits = add_flags(packet_bits, 32, 32)
-    
-    print(packet_bits.bin)
+
     print(packet_bits)
     
     #wave file creation
