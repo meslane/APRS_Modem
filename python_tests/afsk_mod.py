@@ -17,6 +17,8 @@ import matplotlib.pyplot as plt
 from bitarray import bitarray
 from bitarray.util import ba2int
 
+import time
+
 source_call = "W6NXP"
 dest_call = "APRS"
 repeaters = ["WIDE1-1", "WIDE2-1"]
@@ -256,7 +258,7 @@ def rx_thread(input_device):
 
     #start flag search queue
     flag_queue = bitarray()
-    for i in range(16):
+    for i in range(32):
         flag_queue.append(1)
 
     stream = audio.open(format = pyaudio.paInt16,
@@ -308,43 +310,47 @@ def rx_thread(input_device):
         if (pll_out == 1): #sample
             #==state transitions==#
             if (dsp_state == 'FLAG_SEARCH'):
-                if ba2int(flag_queue) == 0x0101: #detect start flag (and make sure it's not a fluke)
+                if ba2int(flag_queue) == 0x01010101: #detect start flag (and make sure it's not a fluke)
                     dsp_state = 'START_FLAG'
-                    print("LOCKED")
+                    #print("LOCKED")
             elif (dsp_state == 'START_FLAG'):
                 if (bit_index == 0 and output_byte != 0x01):
                     dsp_state = 'MESSAGE'
-                    print("IN MESSAGE")
+                    #print("IN MESSAGE")
             elif (dsp_state == 'MESSAGE'):
-                if (ba2int(flag_queue) == 0x0101 or ba2int(flag_queue) == 0x7F7F): #detect end flags
-                    if (bit_index == 0 and (ba2int(flag_queue) & 0xFF == 0x7F)):
-                        message.append(0x00)
+                current_flag = ba2int(flag_queue) & 0xFF
+                if (current_flag == 0x01 or current_flag == 0x7F): #detect end flags
+                    if (bit_index == 0 and current_flag == 0x7F):
+                        #message.append(0x00)
+                        pass
+                    else:
+                        #message.append(0x00)
+                        pass
                     
                     dsp_state = 'END_FLAG'
-                    print("END FLAG REACHED")
+                    #print("END FLAG REACHED")
                 elif (len(message) > 400 or (bit_index == 0 and output_byte == 0x00)):
                     dsp_state = 'RX_RESET'
-                    print("FAILED")
+                    timestring = output_string = time.strftime("%Y-%m-%d %H:%M:%S",time.gmtime())
+                    print(timestring, end='|')
+                    print("DEMODULATION FAILED")
             elif (dsp_state == 'END_FLAG'):
                 ones_count = num_ones(ba2int(flag_queue) & 0xFF, 8)
                 if (ones_count != 1 and ones_count != 7):
                     dsp_state = 'RX_DECODE'
-                    print("END FLAG COMPLETE")
+                    #print("END FLAG COMPLETE")
             elif (dsp_state == 'RX_DECODE'):
                 dsp_state = 'RX_RESET'
-                print("RX RESET")
+                #print("RX RESET")
             elif (dsp_state == 'RX_RESET'):
                 dsp_state = 'FLAG_SEARCH'
-                print("FLAG SEARCH")
+                #print("FLAG SEARCH")
             
             #==state actions==#
             if (dsp_state == 'FLAG_SEARCH'):
                 flag_queue.append(bit)
                 flag_queue.pop(0)
             elif (dsp_state == 'START_FLAG' or dsp_state == 'MESSAGE' or dsp_state == 'END_FLAG'):
-                flag_queue.append(bit)
-                flag_queue.pop(0)
-            
                 if (bit_index == 0):
                     #print(hex(output_byte))
                     
@@ -355,26 +361,44 @@ def rx_thread(input_device):
             
                 output_byte |= (bit << (7 - bit_index))
                 
-                #leave at end
+                #increment index
                 if (bit_index == 7):
                     bit_index = 0
                 else: 
                     bit_index += 1
-            elif (dsp_state == 'RX_DECODE'):
+                
+                #do flag queue
+                flag_queue.append(bit)
+                flag_queue.pop(0)
+                    
+            elif (dsp_state == 'RX_DECODE' and len(message) > 17): #if packet is minimal length
+                timestring = output_string = time.strftime("%Y-%m-%d %H:%M:%S",time.gmtime())
+            
                 message_bits = bitstring.BitArray(bytearray(message)) #lmao
                 message_bits = NRZI_to_NRZ(message_bits)
                 message_bits = unstuff_bits(message_bits)
                 message_bytes = bytearray(message_bits.tobytes())
                 
-                flip_bit_order(message_bytes)
-                
-                message_bytes.pop(-1) #remove end bytes
-                message_bytes.pop(-1)
+                #message_bytes.pop(-1) #remove end bytes
+                #message_bytes.pop(-1)
                 
                 crc = ~crc_16(message_bytes[0:-2]) & 0xFFFF #crc of all but last 2 bytes
+                
+                temp_crc = crc
+                crc = 0
+                for i in range(16):
+                    crc |= ((temp_crc >> (15-i)) & 0x01) << i
+                    
                 print("CRC: {}".format(hex(crc)))
                 
-                #do other CRC shit later
+                flip_bit_order(message_bytes)
+                
+                if (len(message_bytes) >= 2):
+                    packet_crc = (((message_bytes[-1] << 8) & 0xFF00) | (message_bytes[-2] & 0x00FF)) & 0xFFFF
+                else:
+                    packet_crc = 0xFFFF
+                
+                print("Packet CRC: {}".format(hex(packet_crc)))
                 
                 message_string = ''
                 
@@ -409,12 +433,18 @@ def rx_thread(input_device):
                 #get rest of message but avoid CRC or flags
                 message_string += message_bytes[(call_index * 7) + 2: -2].decode('utf-8', errors='replace')
                 
-                print(message_string)
+                print(timestring, end='|')
+                print(message_string, end='|')
+                
+                if (crc == packet_crc):
+                    print("CRC PASSED")
+                else:
+                    print("CRC FAILED")
                 
             elif (dsp_state == 'RX_RESET'):
                 message.clear()
                 bit_index = 0
-                output_byte = 0
+                output_byte = 0x01
 
 def main():
     info = audio.get_host_api_info_by_index(0)
