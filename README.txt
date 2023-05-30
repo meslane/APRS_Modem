@@ -20,24 +20,18 @@
 -Persistent settings
 -TX jitter setting
 -RX capabilites + decoding + CRC checking
+-Python TX/RX script
 
-~== Planned Functionality ==~
--PCB
--3D-printed enclosure
+~== Tips and Tricks ==~
+-Make sure you're not over/under-driving the output of the transmit circuit.
+ Over/under modulation can cause a reciever to fail to properly decode packets.
+ You should test this with a second radio and the python demodulation script included here
+-Also check reciever volume into your PC for the same reasons
+ The demodulator is more resistant to distortion than noise, but it can't hurt
 
 ~== Current Bugs (TOFIX) ==~
-
-~== Fixed Bugs ==~
--Hitting ISR trap during sampling
-	-Fixed by adding bounds checking to packet processing coded
--Occasional false positives happen where a start flag is detected and the RX routine hangs until message buffer overflow
-	-Fixed by adding check if bit index is 0 and end flag is 0x7F
--Decoding would fail unless a print statement was in the dsp isr
-	-Fixed by slightly lengthening the sampling period
--Whether or not a packet is decoded by multimon seems to be a function of its contents
-	-Was caused by bit misalignment in end flag, fixed by refactoring packet code
--First two APRS transmissions are not properly formatted (transmits nothing, then transmits twice)
-    -Fixed by initializing relevant variables differently
+-AGC on the reciever looks like it may require a longer start/stop flag to lock on
+	-Will need to test further though
 
 ~== Acknowlegements ==~
 -Cal EE123 (packet formatting info): https://inst.eecs.berkeley.edu/~ee123/sp15/lab/lab6/Lab6_Part_B-APRS.html

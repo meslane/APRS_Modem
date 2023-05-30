@@ -811,17 +811,29 @@ int main(void) {
     //enable_DSP_timer();
     init_DSP_timer(DSP_TX);
     init_resistor_DAC();
+    init_PTT();
 
     putchars("\n\r");
     for(;;) {
-        pkt_len = make_AX_25_packet(packet, "APRS", "W6NXP", "WIDE1-1", "The quick brown fox jumps over the lazy dog!", 32, 32);
+        pkt_len = make_AX_25_packet(packet, "APRS", "W6NXP", "WIDE1-1", "The quick brown fox jumps over the lazy dog!", 64, 32);
         push_packet(&symbol_queue, packet, pkt_len);
+        PTT_on();
+
+        for (i=0;i<20000;i++) {
+            __no_operation(); //delay to let radio key up
+        }
+
         enable_DSP_timer();
 
         while(tx_queue_empty != 1);
 
         disable_DSP_timer();
+
+        for (i=0;i<20000;i++) {
+            __no_operation(); //delay to let radio key up
+        }
         PTT_off();
+
         tx_queue_empty = 0;
         TX_ongoing = 0;
 
