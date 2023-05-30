@@ -515,6 +515,7 @@ def rx_thread(input_device):
                 
                 #get rest of message but avoid CRC or flags
                 message_string += message_bytes[(call_index * 7) + 2: -2].decode('utf-8', errors='replace')
+                message_string = message_string.replace('\r', "\\r").replace('\n',"\\n").replace('\b',"\\b").replace('\t',"\\t") #replace escape chars
                 
                 print(timestring, end='|')
                 print(message_string, end='|')
