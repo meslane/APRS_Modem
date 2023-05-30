@@ -269,6 +269,7 @@ def rx_thread(input_device):
     input_device_index = input_device)
     
     message = []
+    message_bits = bitstring.BitArray()
     
     while True:
         sample = int.from_bytes(stream.read(1, exception_on_overflow = False), "little", signed=True)
@@ -315,16 +316,23 @@ def rx_thread(input_device):
                     #print("LOCKED")
             elif (dsp_state == 'START_FLAG'):
                 if (bit_index == 0 and output_byte != 0x01):
+                    #message_bits.bin += bitstring.BitArray(output_byte).bin
+                    
+                    for i in range(8):
+                        if (output_byte >> (7-i)) & 0x01 == 0x01:
+                            message_bits.bin += '1'
+                        else:
+                            message_bits.bin += '0'
+                    
                     dsp_state = 'MESSAGE'
                     #print("IN MESSAGE")
             elif (dsp_state == 'MESSAGE'):
                 current_flag = ba2int(flag_queue) & 0xFF
                 if (current_flag == 0x01 or current_flag == 0x7F): #detect end flags
+                    print(output_byte)
                     if (bit_index == 0 and current_flag == 0x7F):
-                        #message.append(0x00)
-                        pass
-                    else:
-                        #message.append(0x00)
+                        #message.append(output_byte)
+                        #print(output_byte)
                         pass
                     
                     dsp_state = 'END_FLAG'
@@ -351,6 +359,7 @@ def rx_thread(input_device):
                 flag_queue.append(bit)
                 flag_queue.pop(0)
             elif (dsp_state == 'START_FLAG' or dsp_state == 'MESSAGE' or dsp_state == 'END_FLAG'):
+                
                 if (bit_index == 0):
                     #print(hex(output_byte))
                     
@@ -367,6 +376,13 @@ def rx_thread(input_device):
                 else: 
                     bit_index += 1
                 
+                
+                if (dsp_state == 'MESSAGE'):
+                    if bit == 1:
+                        message_bits.bin += '1'
+                    else:
+                        message_bits.bin += '0'
+                
                 #do flag queue
                 flag_queue.append(bit)
                 flag_queue.pop(0)
@@ -374,21 +390,39 @@ def rx_thread(input_device):
             elif (dsp_state == 'RX_DECODE' and len(message) > 17): #if packet is minimal length
                 timestring = output_string = time.strftime("%Y-%m-%d %H:%M:%S",time.gmtime())
             
-                message_bits = bitstring.BitArray(bytearray(message)) #lmao
+                #message_bits = bitstring.BitArray(bytearray(message)) #COMMENT ME
+                
+                print(message_bits.bin)
+                
                 message_bits = NRZI_to_NRZ(message_bits)
+                
+                #print(message_bits.bin)
+                
                 message_bits = unstuff_bits(message_bits)
+                
+                #print(message_bits.bin)
+                
+                '''
+                while (len(message_bits.bin) % 4 != 0): #remove extra bits
+                    message_bits.bin += '0'
+                '''
+                   
+                #print(message_bits)
+                
                 message_bytes = bytearray(message_bits.tobytes())
                 
-                #message_bytes.pop(-1) #remove end bytes
-                #message_bytes.pop(-1)
+                print(message_bytes.hex())
+                
+                message_bytes.pop(-1) #COMMENT ME
                 
                 crc = ~crc_16(message_bytes[0:-2]) & 0xFFFF #crc of all but last 2 bytes
                 
                 temp_crc = crc
                 crc = 0
+                
                 for i in range(16):
                     crc |= ((temp_crc >> (15-i)) & 0x01) << i
-                    
+                
                 print("CRC: {}".format(hex(crc)))
                 
                 flip_bit_order(message_bytes)
@@ -443,6 +477,7 @@ def rx_thread(input_device):
                 
             elif (dsp_state == 'RX_RESET'):
                 message.clear()
+                message_bits = bitstring.BitArray()
                 bit_index = 0
                 output_byte = 0x01
 
