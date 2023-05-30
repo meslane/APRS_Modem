@@ -19,6 +19,8 @@ from bitarray.util import ba2int
 
 import time
 
+import msvcrt
+
 source_call = "W6NXP"
 dest_call = "APRS"
 repeaters = ["WIDE1-1", "WIDE2-1"]
@@ -232,6 +234,83 @@ def num_ones(input, bits): #count number of ones in int
         sum += (input >> i) & 0x01
         
     return bits
+    
+def send_message(message):
+    #message = str(input(">"))
+    packet_bytes = bytearray()
+    
+    #create packet contents
+    packet_bytes.extend(convert_callsign(dest_call))
+    packet_bytes.extend(convert_callsign(source_call))
+    
+    for repeater in repeaters:
+        packet_bytes.extend(convert_callsign(repeater))
+        
+    packet_bytes[-1] |= 0x01 #append last address bit
+    
+    packet_bytes.append(0x03)
+    packet_bytes.append(0xF0)
+    
+    packet_bytes.extend(bytearray(message, 'utf-8'))
+    
+    #bitwise packet encoding
+    flip_bit_order(packet_bytes)
+    
+    crc = ~crc_16(packet_bytes) & 0xFFFF
+    print("CRC: {}".format(hex(crc)))
+    
+    packet_bytes.append((crc >> 8) & 0xFF)
+    packet_bytes.append(crc & 0xFF)
+    packet_bits = bitstring.BitArray(packet_bytes)
+    packet_bits = stuff_bits(packet_bits)
+    packet_bits = NRZ_to_NRZI(packet_bits)
+    
+    if (len(packet_bits) / 8 > 400):
+        print("WARNING: message is too long: len = {}, max = 400".format(len(packet_bits) / 8))
+    
+    packet_bits = add_flags(packet_bits, 32, 32)
+
+    #print(packet_bits)
+    
+    #wave file creation
+    wave_output = wave.open('temp.wav','w')
+    wave_output.setnchannels(1) #mono
+    wave_output.setsampwidth(2) #16 bit samples
+    wave_output.setframerate(26400) #same sample rate as modulator on MSP430
+    
+    #audio outputting
+    print("Transmitting")
+    
+    current_angle = 0
+    symbol_counter = 0
+    symbol_index = 0
+    current_symbol = '0'
+    for i in range(len(packet_bits.bin) * 22): #22 samples per symbol
+        if symbol_counter == 0: #get next symbol
+            if (symbol_index < len(packet_bits.bin) - 1):
+                current_symbol = packet_bits.bin[symbol_index]
+                symbol_index += 1
+    
+        if current_symbol == '0': #2200 Hz
+            current_angle += 30
+        elif current_symbol == '1': #1200 Hz
+            current_angle += 16.3636 
+        
+        if current_angle > 360: #prevent large values
+            current_angle -= 360
+        
+        sample = int(math.sin(current_angle * 0.0174533) * 32767) #convert to radians and scale
+        wave_output.writeframesraw(struct.pack('<h', sample))
+        
+        symbol_counter += 1
+        
+        if (symbol_counter == 22):
+            symbol_counter = 0
+    
+    wave_output.close()
+
+    winsound.PlaySound('temp.wav', winsound.SND_FILENAME) #play file we just created
+    print("Transmission complete")
 
 #this works if not threaded
 def rx_thread(input_device):
@@ -313,11 +392,10 @@ def rx_thread(input_device):
             if (dsp_state == 'FLAG_SEARCH'):
                 if ba2int(flag_queue) == 0x01010101: #detect start flag (and make sure it's not a fluke)
                     dsp_state = 'START_FLAG'
-                    #print("LOCKED")
+                elif msvcrt.kbhit(): #if user presses key
+                    dsp_state = 'SEND_MESSAGE'
             elif (dsp_state == 'START_FLAG'):
                 if (bit_index == 0 and output_byte != 0x01):
-                    #message_bits.bin += bitstring.BitArray(output_byte).bin
-                    
                     for i in range(8):
                         if (output_byte >> (7-i)) & 0x01 == 0x01:
                             message_bits.bin += '1'
@@ -325,34 +403,22 @@ def rx_thread(input_device):
                             message_bits.bin += '0'
                     
                     dsp_state = 'MESSAGE'
-                    #print("IN MESSAGE")
             elif (dsp_state == 'MESSAGE'):
                 current_flag = ba2int(flag_queue) & 0xFF
                 if (current_flag == 0x01 or current_flag == 0x7F): #detect end flags
-                    print(output_byte)
-                    if (bit_index == 0 and current_flag == 0x7F):
-                        #message.append(output_byte)
-                        #print(output_byte)
-                        pass
-                    
                     dsp_state = 'END_FLAG'
-                    #print("END FLAG REACHED")
                 elif (len(message) > 400 or (bit_index == 0 and output_byte == 0x00)):
                     dsp_state = 'RX_RESET'
-                    timestring = output_string = time.strftime("%Y-%m-%d %H:%M:%S",time.gmtime())
-                    print(timestring, end='|')
-                    print("DEMODULATION FAILED")
             elif (dsp_state == 'END_FLAG'):
                 ones_count = num_ones(ba2int(flag_queue) & 0xFF, 8)
                 if (ones_count != 1 and ones_count != 7):
                     dsp_state = 'RX_DECODE'
-                    #print("END FLAG COMPLETE")
             elif (dsp_state == 'RX_DECODE'):
                 dsp_state = 'RX_RESET'
-                #print("RX RESET")
             elif (dsp_state == 'RX_RESET'):
                 dsp_state = 'FLAG_SEARCH'
-                #print("FLAG SEARCH")
+            elif (dsp_state == 'SEND_MESSAGE'):
+                dsp_state = 'FLAG_SEARCH'
             
             #==state actions==#
             if (dsp_state == 'FLAG_SEARCH'):
@@ -391,30 +457,12 @@ def rx_thread(input_device):
                 timestring = output_string = time.strftime("%Y-%m-%d %H:%M:%S",time.gmtime())
             
                 #message_bits = bitstring.BitArray(bytearray(message)) #COMMENT ME
-                
-                print(message_bits.bin)
-                
                 message_bits = NRZI_to_NRZ(message_bits)
-                
-                #print(message_bits.bin)
-                
                 message_bits = unstuff_bits(message_bits)
-                
-                #print(message_bits.bin)
-                
-                '''
-                while (len(message_bits.bin) % 4 != 0): #remove extra bits
-                    message_bits.bin += '0'
-                '''
-                   
-                #print(message_bits)
-                
                 message_bytes = bytearray(message_bits.tobytes())
-                
-                print(message_bytes.hex())
-                
                 message_bytes.pop(-1) #COMMENT ME
                 
+                #CRC stuff
                 crc = ~crc_16(message_bytes[0:-2]) & 0xFFFF #crc of all but last 2 bytes
                 
                 temp_crc = crc
@@ -434,6 +482,7 @@ def rx_thread(input_device):
                 
                 print("Packet CRC: {}".format(hex(packet_crc)))
                 
+                #do message
                 message_string = ''
                 
                 #extract calls
@@ -480,6 +529,9 @@ def rx_thread(input_device):
                 message_bits = bitstring.BitArray()
                 bit_index = 0
                 output_byte = 0x01
+                
+            elif (dsp_state == 'SEND_MESSAGE'):
+                send_message(str(input(">")))
 
 def main():
     info = audio.get_host_api_info_by_index(0)
@@ -490,88 +542,6 @@ def main():
             print("Input Device id ", i, " - ", audio.get_device_info_by_host_api_device_index(0, i).get('name'))
 
     input_device = int(input("Select input device ID:"))
-
-    #thread = threading.Thread(target=rx_thread, args=[input_device])
-    #thread.start()
     rx_thread(input_device)
-    
-    '''
-    while True:
-        message = str(input(">"))
-        packet_bytes = bytearray()
-        
-        #create packet contents
-        packet_bytes.extend(convert_callsign(dest_call))
-        packet_bytes.extend(convert_callsign(source_call))
-        
-        for repeater in repeaters:
-            packet_bytes.extend(convert_callsign(repeater))
-            
-        packet_bytes[-1] |= 0x01 #append last address bit
-        
-        packet_bytes.append(0x03)
-        packet_bytes.append(0xF0)
-        
-        packet_bytes.extend(bytearray(message, 'utf-8'))
-        
-        #bitwise packet encoding
-        flip_bit_order(packet_bytes)
-        
-        crc = ~crc_16(packet_bytes) & 0xFFFF
-        print("CRC: {}".format(hex(crc)))
-        
-        packet_bytes.append((crc >> 8) & 0xFF)
-        packet_bytes.append(crc & 0xFF)
-        packet_bits = bitstring.BitArray(packet_bytes)
-        packet_bits = stuff_bits(packet_bits)
-        packet_bits = NRZ_to_NRZI(packet_bits)
-        
-        if (len(packet_bits) / 8 > 400):
-            print("WARNING: message is too long: len = {}, max = 400".format(len(packet_bits) / 8))
-        
-        packet_bits = add_flags(packet_bits, 32, 32)
-
-        #print(packet_bits)
-        
-        #wave file creation
-        wave_output = wave.open('temp.wav','w')
-        wave_output.setnchannels(1) #mono
-        wave_output.setsampwidth(2) #16 bit samples
-        wave_output.setframerate(26400) #same sample rate as modulator on MSP430
-        
-        #audio outputting
-        print("Transmitting")
-        
-        current_angle = 0
-        symbol_counter = 0
-        symbol_index = 0
-        current_symbol = '0'
-        for i in range(len(packet_bits.bin) * 22): #22 samples per symbol
-            if symbol_counter == 0: #get next symbol
-                if (symbol_index < len(packet_bits.bin) - 1):
-                    current_symbol = packet_bits.bin[symbol_index]
-                    symbol_index += 1
-        
-            if current_symbol == '0': #2200 Hz
-                current_angle += 30
-            elif current_symbol == '1': #1200 Hz
-                current_angle += 16.3636 
-            
-            if current_angle > 360: #prevent large values
-                current_angle -= 360
-            
-            sample = int(math.sin(current_angle * 0.0174533) * 32767) #convert to radians and scale
-            wave_output.writeframesraw(struct.pack('<h', sample))
-            
-            symbol_counter += 1
-            
-            if (symbol_counter == 22):
-                symbol_counter = 0
-        
-        wave_output.close()
-
-        winsound.PlaySound('temp.wav', winsound.SND_FILENAME) #play file we just created
-        print("Transmission complete")
-    '''
     
 main()
