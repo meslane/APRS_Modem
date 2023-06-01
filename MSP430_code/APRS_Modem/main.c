@@ -767,6 +767,84 @@ enum RX_state RX_tick(enum RX_state state) {
     return state;
 }
 
+enum BBS_state{BBS_START, BBS_RX, BBS_PROCESS, BBS_TX};
+enum BBS_state BBS_tick(enum BBS_state state) {
+    static enum RX_state rx_state = RX_START;
+
+    unsigned int pkt_len;
+    unsigned long long i;
+    char packet[400];
+
+    /* transitions */
+    switch (state) {
+    case BBS_START:
+        init_DSP_timer(DSP_RX);
+        enable_DSP_timer();
+        state = BBS_RX;
+        break;
+    case BBS_RX:
+        if (rx_state == RX_RESET) { //if a message has been gotten, process it
+            disable_DSP_timer(); //pause DSP
+            state = BBS_PROCESS;
+        }
+        break;
+    case BBS_PROCESS:
+        init_DSP_timer(DSP_TX);
+        state = BBS_TX; //TEMP, change later
+        break;
+    case BBS_TX:
+        init_DSP_timer(DSP_RX);
+        enable_DSP_timer();
+        state = BBS_RX;
+        break;
+    default:
+        state = BBS_START;
+        break;
+    }
+
+    /* actions */
+    switch (state) {
+    case BBS_START:
+        break;
+    case BBS_RX:
+        rx_state = RX_tick(rx_state); //increment RX state machine in RX mode
+        break;
+    case BBS_PROCESS:
+        break;
+    case BBS_TX:
+        pkt_len = make_AX_25_packet(packet, "APRS", "W6NXP", "WIDE1-1", "Got a packet!", 64, 32);
+        push_packet(&symbol_queue, packet, pkt_len);
+        PTT_on();
+
+        for (i=0;i<20000;i++) {
+           __no_operation(); //delay to let radio key up
+        }
+
+        enable_DSP_timer();
+
+        while(tx_queue_empty != 1);
+
+        disable_DSP_timer();
+
+        for (i=0;i<20000;i++) {
+           __no_operation(); //delay to let radio key up
+        }
+        PTT_off();
+
+        tx_queue_empty = 0;
+        TX_ongoing = 0;
+
+        for (i=0;i<240000;i++) {
+           __no_operation(); //delay
+        }
+        break;
+    default:
+        break;
+    }
+
+    return state;
+}
+
 int main(void) {
     WDTCTL = WDTPW | WDTHOLD;	//stop watchdog timer
     PM5CTL0 &= ~LOCKLPM5; //disable high-impedance GPIO mode
@@ -800,12 +878,13 @@ int main(void) {
     */
 
     enum RX_state rx_state = RX_START;
+    enum BBS_state bbs_state = BBS_START;
 
     unsigned long long tick = 0;
     unsigned int pkt_len;
     unsigned long long i = 0;
 
-    char packet[400];
+    //char packet[400];
 
     //init_DSP_timer(DSP_RX);
     //enable_DSP_timer();
@@ -815,34 +894,8 @@ int main(void) {
 
     putchars("\n\r");
     for(;;) {
-        pkt_len = make_AX_25_packet(packet, "APRS", "W6NXP", "WIDE1-1", "The quick brown fox jumps over the lazy dog!", 64, 32);
-        push_packet(&symbol_queue, packet, pkt_len);
-        PTT_on();
 
-        for (i=0;i<20000;i++) {
-            __no_operation(); //delay to let radio key up
-        }
-
-        enable_DSP_timer();
-
-        while(tx_queue_empty != 1);
-
-        disable_DSP_timer();
-
-        for (i=0;i<20000;i++) {
-            __no_operation(); //delay to let radio key up
-        }
-        PTT_off();
-
-        tx_queue_empty = 0;
-        TX_ongoing = 0;
-
-        for (i=0;i<240000;i++) {
-            __no_operation(); //delay
-        }
-
-
-        //rx_state = RX_tick(rx_state);
+        bbs_state = BBS_tick(bbs_state);
 
         tick++;
     }
