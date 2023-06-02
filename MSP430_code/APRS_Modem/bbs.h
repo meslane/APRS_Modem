@@ -1,11 +1,21 @@
 #ifndef BBS_H_
 #define BBS_H_
 
+#define CRC_PASS 0
+#define CRC_FAIL 1
+
 struct message {
-    char source[7];
-    char dest[7];
+    char callsigns[8][7];
+    unsigned char num_callsigns;
+
     char payload[64];
+    unsigned char payload_len;
+
+    char crc;
 };
+
+void print_message_packet(struct message* msg);
+struct message demod_AX_25_packet_to_msg(char* NRZI_bytes, unsigned int len);
 
 
 #endif /* BBS_H_ */
