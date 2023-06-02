@@ -1,5 +1,6 @@
 #include <bbs.h>
 #include <packet.h>
+#include <dsp.h>
 #include <serial.h>
 
 void print_message_packet(struct message* msg) {
@@ -135,6 +136,7 @@ struct message demod_AX_25_packet_to_msg(char* NRZI_bytes, unsigned int len) {
 
             }
             in_pointer++;
+            output_message.callsigns[call_pointer][out_pointer] = '\0';
         }
 
         call_pointer++;
@@ -156,4 +158,33 @@ struct message demod_AX_25_packet_to_msg(char* NRZI_bytes, unsigned int len) {
     output_message.payload_len = out_pointer;
 
     return output_message;
+}
+
+void send_message(struct message* msg) {
+    unsigned long long i;
+    unsigned int pkt_len;
+    char packet[400];
+
+    pkt_len = make_AX_25_packet(packet, msg->callsigns[0], msg->callsigns[1], msg->callsigns[2], msg->payload, 64, 32);
+    push_packet(&symbol_queue, packet, pkt_len);
+
+    PTT_on();
+    for (i=0;i<20000;i++) {
+       __no_operation(); //delay to let radio key up
+    }
+
+    enable_DSP_timer();
+    while(tx_queue_empty != 1);
+    disable_DSP_timer();
+
+    for (i=0;i<20000;i++) {
+       __no_operation(); //delay to let radio key down
+    }
+    PTT_off();
+
+    tx_queue_empty = 0;
+
+    for (i=0;i<240000;i++) {
+       __no_operation(); //delay
+    }
 }

@@ -47,6 +47,7 @@ void print_binary(long long b, int n);
 void print_hex(char h);
 
 char streq(char* str1, char* str2, unsigned int len);
+void strcpy(char* dest, char* src, unsigned int len);
 long long str_to_int(char* str);
 void int_to_str(char* str, const long long data, const unsigned char len);
 

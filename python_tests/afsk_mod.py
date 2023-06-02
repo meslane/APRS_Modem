@@ -22,7 +22,7 @@ import time
 import msvcrt
 
 source_call = "W6NXP"
-dest_call = "APRS"
+dest_call = "BBS-1"
 repeaters = ["WIDE1-1", "WIDE2-1"]
 
 #2200 Hz -> 360/12 = 30
@@ -488,8 +488,8 @@ def rx_thread(input_device):
                 #extract calls
                 last = False
                 call_index = 0
-                while not last and (call_index < len(message_bytes) - 7):
-                    call_bytes = message_bytes[(call_index * 7):((call_index + 1) *7)]
+                while not last and ((call_index * 7) < (len(message_bytes) - 7)): #bounds checking
+                    call_bytes = message_bytes[(call_index * 7):((call_index + 1) * 7)]
                     
                     if call_bytes[6] & 0x01 == 0x01:
                         last = True

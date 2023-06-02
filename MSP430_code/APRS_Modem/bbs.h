@@ -5,7 +5,7 @@
 #define CRC_FAIL 1
 
 struct message {
-    char callsigns[8][7];
+    char callsigns[8][10];
     unsigned char num_callsigns;
 
     char payload[64];
@@ -16,6 +16,6 @@ struct message {
 
 void print_message_packet(struct message* msg);
 struct message demod_AX_25_packet_to_msg(char* NRZI_bytes, unsigned int len);
-
+void send_message(struct message* msg);
 
 #endif /* BBS_H_ */

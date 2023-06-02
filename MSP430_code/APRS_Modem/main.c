@@ -12,6 +12,7 @@ char message[400];
 char output[400];
 
 struct message msg;
+struct message outgoing_message;
 
 char* BBS_CALL = "BBS-1";
 
@@ -122,10 +123,6 @@ enum BBS_state{BBS_START, BBS_RX, BBS_PROCESS, BBS_TX};
 enum BBS_state BBS_tick(enum BBS_state state) {
     static enum RX_state rx_state = RX_START;
 
-    unsigned int pkt_len;
-    unsigned long long i;
-    char packet[400];
-
     /* transitions */
     switch (state) {
     case BBS_START:
@@ -140,8 +137,14 @@ enum BBS_state BBS_tick(enum BBS_state state) {
         }
         break;
     case BBS_PROCESS:
-        init_DSP_timer(DSP_TX);
-        state = BBS_TX; //TEMP, change later
+        if (streq(msg.callsigns[0], "BBS-", 4)) { //if message is made out to BBS
+            init_DSP_timer(DSP_TX);
+            state = BBS_TX;
+        } else {
+            init_DSP_timer(DSP_RX);
+            enable_DSP_timer();
+            state = BBS_RX;
+        }
         break;
     case BBS_TX:
         init_DSP_timer(DSP_RX);
@@ -161,32 +164,25 @@ enum BBS_state BBS_tick(enum BBS_state state) {
         rx_state = RX_tick(rx_state); //increment RX state machine in RX mode
         break;
     case BBS_PROCESS:
+        strcpy(outgoing_message.callsigns[0], msg.callsigns[1], 10); //move sender to recipient
+        strcpy(outgoing_message.callsigns[1], BBS_CALL, 10);
+        strcpy(outgoing_message.callsigns[2], msg.callsigns[2], 10);
+
+        /*
+        outgoing_message.num_callsigns = 2;
+        */
+
+        if (streq(msg.payload, "!ping", 5)) {
+            strcpy(outgoing_message.payload, "pong!", 63);
+            //outgoing_message.payload_len = 5;
+        } else {
+            strcpy(outgoing_message.payload, "Invalid command", 63);
+            //outgoing_message.payload_len = 5;
+        }
+
         break;
     case BBS_TX:
-        pkt_len = make_AX_25_packet(packet, msg.callsigns[1], BBS_CALL, msg.callsigns[2], msg.payload, 64, 32);
-        push_packet(&symbol_queue, packet, pkt_len);
-        PTT_on();
-
-        for (i=0;i<20000;i++) {
-           __no_operation(); //delay to let radio key up
-        }
-
-        enable_DSP_timer();
-
-        while(tx_queue_empty != 1);
-
-        disable_DSP_timer();
-
-        for (i=0;i<20000;i++) {
-           __no_operation(); //delay to let radio key up
-        }
-        PTT_off();
-
-        tx_queue_empty = 0;
-
-        for (i=0;i<240000;i++) {
-           __no_operation(); //delay
-        }
+        send_message(&outgoing_message);
         break;
     default:
         break;
@@ -203,7 +199,6 @@ int main(void) {
     Software_Trim();
     init_clock();
     init_UART_UCA1(115200); //terminal output
-    //init_UART_UCA0(9600); //GPS module
 
     //set P1.5 to ADC input
     P1SEL0 |= (1 << 5);

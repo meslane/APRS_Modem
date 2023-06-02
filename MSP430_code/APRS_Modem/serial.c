@@ -396,6 +396,15 @@ char streq(char* str1, char* str2, unsigned int len) {
     return 1;
 }
 
+//copy one string to another
+void strcpy(char* dest, char* src, unsigned int len) {
+    unsigned int i;
+
+    for (i=0;i<len;i++) {
+        dest[i] = src[i];
+    }
+}
+
 long long str_to_int(char* str) {
     unsigned int i = 0;
     long long output = 0;
