@@ -257,7 +257,7 @@ def send_message(message):
     flip_bit_order(packet_bytes)
     
     crc = ~crc_16(packet_bytes) & 0xFFFF
-    print("CRC: {}".format(hex(crc)))
+    #print("CRC: {}".format(hex(crc)))
     
     packet_bytes.append((crc >> 8) & 0xFF)
     packet_bytes.append(crc & 0xFF)
@@ -277,6 +277,19 @@ def send_message(message):
     wave_output.setnchannels(1) #mono
     wave_output.setsampwidth(2) #16 bit samples
     wave_output.setframerate(26400) #same sample rate as modulator on MSP430
+    
+    timestring = time.strftime("%Y-%m-%d %H:%M:%S",time.gmtime())
+    
+    print("[{}]".format(timestring))
+    print("Sending Message: ", end='')
+    print(dest_call, end='|')
+    print(source_call, end='|')
+    
+    for repeater in repeaters:
+        print(repeater, end="|")
+        
+    print(message,end="|")
+    print("CRC={}".format(hex(crc)))
     
     #audio outputting
     print("Transmitting")
@@ -310,7 +323,7 @@ def send_message(message):
     wave_output.close()
 
     winsound.PlaySound('temp.wav', winsound.SND_FILENAME) #play file we just created
-    print("Transmission complete")
+    print("Transmission complete\n")
 
 #this works if not threaded
 def rx_thread(input_device):
@@ -409,6 +422,7 @@ def rx_thread(input_device):
                     dsp_state = 'END_FLAG'
                 elif (len(message) > 400 or (bit_index == 0 and output_byte == 0x00)):
                     dsp_state = 'RX_RESET'
+                    #print("PACKET FAILED")
             elif (dsp_state == 'END_FLAG'):
                 ones_count = num_ones(ba2int(flag_queue) & 0xFF, 8)
                 if (ones_count != 1 and ones_count != 7):
@@ -471,7 +485,7 @@ def rx_thread(input_device):
                 for i in range(16):
                     crc |= ((temp_crc >> (15-i)) & 0x01) << i
                 
-                print("CRC: {}".format(hex(crc)))
+                #print("Calculated CRC: {}".format(hex(crc)), end = " ")
                 
                 flip_bit_order(message_bytes)
                 
@@ -480,7 +494,7 @@ def rx_thread(input_device):
                 else:
                     packet_crc = 0xFFFF
                 
-                print("Packet CRC: {}".format(hex(packet_crc)))
+                #print("Message CRC: {}".format(hex(packet_crc)))
                 
                 #do message
                 message_string = ''
@@ -517,13 +531,15 @@ def rx_thread(input_device):
                 message_string += message_bytes[(call_index * 7) + 2: -2].decode('utf-8', errors='replace')
                 message_string = message_string.replace('\r', "\\r").replace('\n',"\\n").replace('\b',"\\b").replace('\t',"\\t") #replace escape chars
                 
-                print(timestring, end='|')
+                print("[{}]".format(timestring))
+                print("Got Packet (Calculated CRC = {}, Message CRC = {})".format(hex(crc), hex(packet_crc)))
                 print(message_string, end='|')
                 
                 if (crc == packet_crc):
                     print("CRC PASSED")
                 else:
                     print("CRC FAILED")
+                print()
                 
             elif (dsp_state == 'RX_RESET'):
                 message.clear()

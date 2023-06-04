@@ -1,3 +1,4 @@
+#include <msp430.h>
 #include <bbs.h>
 #include <packet.h>
 #include <dsp.h>
@@ -97,8 +98,10 @@ struct message demod_AX_25_packet_to_msg(char* NRZI_bytes, unsigned int len) {
 
     if (crc == packet_crc) { //check against recovered CRC
         output_message.crc = CRC_PASS;
+        P1OUT |= (0x01 << 1); //DEBUG
     } else {
         output_message.crc = CRC_FAIL;
+        P1OUT &= ~(0x01 << 1); //DEBUG
     }
 
     in_pointer = 0;
@@ -167,6 +170,10 @@ void send_message(struct message* msg) {
 
     pkt_len = make_AX_25_packet(packet, msg->callsigns[0], msg->callsigns[1], msg->callsigns[2], msg->payload, 64, 32);
     push_packet(&symbol_queue, packet, pkt_len);
+
+    for (i=0;i<1000000;i++) {
+       __no_operation(); //delay
+    }
 
     PTT_on();
     for (i=0;i<20000;i++) {

@@ -75,6 +75,8 @@ enum RX_state RX_tick(enum RX_state state) {
     /* actions */
     switch(state) {
     case RX_UNLOCKED:
+        P1OUT &= ~(0x01 << 2); //DEBUG
+
         if (rx_ready == 1) { //if PLL has triggered a bit sample
             rx_ready = 0;
 
@@ -84,6 +86,8 @@ enum RX_state RX_tick(enum RX_state state) {
     case RX_START_FLAG:
     case RX_MESSAGE:
     case RX_END_FLAG:
+        P1OUT |= (0x01 << 2); //DEBUG
+
         if (rx_ready == 1) { //if PLL has triggered a bit sample
             rx_ready = 0;
 
@@ -104,10 +108,14 @@ enum RX_state RX_tick(enum RX_state state) {
         }
         break;
     case RX_DECODE:
+        P1OUT |= (0x01 << 2); //DEBUG
+
         msg = demod_AX_25_packet_to_msg(message, message_index);
         print_message_packet(&msg);
         break;
     case RX_RESET:
+        P1OUT |= (0x01 << 2); //DEBUG
+
         message_index = 0; //reset for next pass
         bit_index = 0;
         byte = 0x01; //so it doesn't immediately go to message
@@ -168,16 +176,34 @@ enum BBS_state BBS_tick(enum BBS_state state) {
         strcpy(outgoing_message.callsigns[1], BBS_CALL, 10);
         strcpy(outgoing_message.callsigns[2], msg.callsigns[2], 10);
 
-        /*
-        outgoing_message.num_callsigns = 2;
-        */
 
+        /* MAIN BBS work code */
         if (streq(msg.payload, "!ping", 5)) {
-            strcpy(outgoing_message.payload, "pong!", 63);
-            //outgoing_message.payload_len = 5;
-        } else {
-            strcpy(outgoing_message.payload, "Invalid command", 63);
-            //outgoing_message.payload_len = 5;
+            strcpy(outgoing_message.payload, "pong!", MAX_PAYLOAD);
+        }
+        else if (streq(msg.payload, "!help", 5)) {
+            strcpy(outgoing_message.payload, "Commands: !ping, !help, !users, !messages, !message, !delete (!about [command] for more info)", MAX_PAYLOAD);
+        }
+        else if (streq(msg.payload, "!about ping", 11)) {
+            strcpy(outgoing_message.payload, "!ping: pings the server, server responds with '!pong' if message was received", MAX_PAYLOAD);
+        }
+        else if (streq(msg.payload, "!about help", 11)) {
+            strcpy(outgoing_message.payload, "!help: lists all commands", MAX_PAYLOAD);
+        }
+        else if (streq(msg.payload, "!about users", 12)) {
+            strcpy(outgoing_message.payload, "!users: lists all users whose messages are currently stored on the server", MAX_PAYLOAD);
+        }
+        else if (streq(msg.payload, "!about messages", 15)) {
+            strcpy(outgoing_message.payload, "!messages: returns the number of stored messages addressed to the user", MAX_PAYLOAD);
+        }
+        else if (streq(msg.payload, "!about message", 14)) {
+            strcpy(outgoing_message.payload, "!message [number]: returns the requested message addressed to the user (if it exists)", MAX_PAYLOAD);
+        }
+        else if (streq(msg.payload, "!about delete", 13)) {
+                    strcpy(outgoing_message.payload, "!delete [number]: deletes the given message addressed to the user (do this after reading, oldest messages are auto-deleted)", MAX_PAYLOAD);
+                }
+        else {
+            strcpy(outgoing_message.payload, "Invalid command (send '!help' for list)", MAX_PAYLOAD);
         }
 
         break;
@@ -208,6 +234,7 @@ int main(void) {
     P1DIR |= (0x01 << 4);
     P1DIR |= (0x01 << 1);
     P1DIR |= (0x01 << 3);
+    P1DIR |= (0x01 << 2);
 
     enum BBS_state bbs_state = BBS_START;
 
@@ -217,9 +244,21 @@ int main(void) {
     init_PTT();
 
     putchars("\n\r");
-    for(;;) {
 
+    /*
+    struct message m = {
+        .callsigns[0] = "W6NXP",
+        .callsigns[1] = "BBS-1",
+        .callsigns[2] = "WIDE1-1",
+        .num_callsigns = 3,
+        .payload = "Hello world!"
+    };
+    init_DSP_timer(DSP_TX);
+    */
+
+    for(;;) {
         bbs_state = BBS_tick(bbs_state);
+        //send_message(&m);
 
         tick++;
     }

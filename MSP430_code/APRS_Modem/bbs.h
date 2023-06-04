@@ -4,11 +4,13 @@
 #define CRC_PASS 0
 #define CRC_FAIL 1
 
+#define MAX_PAYLOAD 128
+
 struct message {
     char callsigns[8][10];
     unsigned char num_callsigns;
 
-    char payload[64];
+    char payload[MAX_PAYLOAD];
     unsigned char payload_len;
 
     char crc;
