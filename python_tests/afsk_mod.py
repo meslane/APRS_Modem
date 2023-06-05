@@ -21,10 +21,6 @@ import time
 
 import msvcrt
 
-source_call = "W6NXP"
-dest_call = "BBS-1"
-repeaters = ["WIDE1-1", "WIDE2-1"]
-
 #2200 Hz -> 360/12 = 30
 #1200 Hz -> 360/22 = 16.3636
 
@@ -235,7 +231,7 @@ def num_ones(input, bits): #count number of ones in int
         
     return bits
     
-def send_message(message):
+def send_message(source_call, dest_call, repeaters, message):
     #message = str(input(">"))
     packet_bytes = bytearray()
     
@@ -327,6 +323,10 @@ def send_message(message):
 
 #this works if not threaded
 def rx_thread(input_device):
+    source_call = "W6NXP"
+    dest_call = "BBS-1"
+    repeaters = ["WIDE1-1", "WIDE2-1"]
+
     sample_rate = 9600
     
     samples_per_symbol = 18
@@ -362,6 +362,21 @@ def rx_thread(input_device):
     
     message = []
     message_bits = bitstring.BitArray()
+    
+    '''
+    Callsign inputs
+    '''
+    source_call = str((input("Input sender callsign:")))
+    dest_call = str((input("Input destination callsign:")))
+    
+    print("Input repeaters sequentially, enter RETURN to exit")
+    repeaters = []
+    repeater = str((input("Repeater>")))
+    while repeater:
+        repeaters.append(repeater)
+        repeater = str((input("Repeater>")))
+        
+    print()
     
     while True:
         sample = int.from_bytes(stream.read(1, exception_on_overflow = False), "little", signed=True)
@@ -548,7 +563,23 @@ def rx_thread(input_device):
                 output_byte = 0x01
                 
             elif (dsp_state == 'SEND_MESSAGE'):
-                send_message(str(input(">")))
+                input_str = str(input(">"))
+                
+                if (input_str == "\srccall"):
+                    source_call = str((input("Input new sender callsign:")))
+                elif (input_str == "\destcall"):
+                    dest_call = str((input("Input new destination callsign:")))
+                elif (input_str == "\\repeaters"):
+                    print("Input repeaters sequentially, enter RETURN to exit")
+                    repeaters = []
+                    
+                    repeater = str((input("Repeater>")))
+                    while repeater:
+                        repeaters.append(repeater)
+                        repeater = str((input("Repeater>")))
+                else:
+                    send_message(source_call, dest_call, repeaters, input_str)
+                
 
 def main():
     info = audio.get_host_api_info_by_index(0)
@@ -559,6 +590,8 @@ def main():
             print("Input Device id ", i, " - ", audio.get_device_info_by_host_api_device_index(0, i).get('name'))
 
     input_device = int(input("Select input device ID:"))
+    print()
+    
     rx_thread(input_device)
     
 main()
