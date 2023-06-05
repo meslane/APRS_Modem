@@ -137,6 +137,7 @@ enum BBS_state BBS_tick(enum BBS_state state) {
 
     static char temp[128];
     unsigned int i;
+    unsigned int j;
     static char num_temp[4];
     unsigned int stack_size;
     unsigned int msg_id;
@@ -232,7 +233,11 @@ enum BBS_state BBS_tick(enum BBS_state state) {
 
                 stack_size = message_stack_size();
                 for (i = 0; i < stack_size; i++) {
-                    if (streq(peek_message_stack(i).callsigns[0], msg.callsigns[1], 9)) { //if addressed to user
+                    enable_FRAM_write(FRAM_WRITE_ENABLE);
+                    temp_msg = peek_message_stack(i);
+                    enable_FRAM_write(FRAM_WRITE_DISABLE);
+
+                    if (streq(temp_msg.callsigns[0], msg.callsigns[1], 9)) { //if addressed to user
                         int_to_str(num_temp, i, 2);
                         strcat(temp, num_temp);
                         strcat(temp, " ");
@@ -255,6 +260,11 @@ enum BBS_state BBS_tick(enum BBS_state state) {
 
                     if (streq(temp_msg.callsigns[0], msg.callsigns[1], 9)) {
                         strcat(temp, temp_msg.payload);
+
+                        for (j = 0; j < temp_msg.num_callsigns; j++) {
+                            strcpy(outgoing_message.callsigns[j], temp_msg.callsigns[j], 10);
+                        }
+                        outgoing_message.num_callsigns = temp_msg.num_callsigns;
                     } else {
                         strcat(temp, "ERROR: message is not addressed to you");
                     }
