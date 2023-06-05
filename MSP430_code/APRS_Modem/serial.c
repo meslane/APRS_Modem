@@ -293,6 +293,28 @@ void int_to_str(char* str, const long long data, const unsigned char len) {
     str[j] = '\0';
 }
 
+long long str_to_int(char* str) {
+    unsigned int i = 0;
+    long long output = 0;
+    int sign = 1;
+
+    while (str[i] != '\0' && str[i] != '.') {
+        output *= 10;
+
+        if (i == 0 && str[i] == '-') { //detect negative sign
+            sign = -1;
+        } else {
+            output += (str[i] - 0x30); //remove ASCII offset
+        }
+
+        i++;
+    }
+
+    output *= sign;
+
+    return output;
+}
+
 void print_binary(long long b, int n) {
     int i;
     for (i = n; i >= 0; i--) {
@@ -463,28 +485,6 @@ char instr(char* main_string, char* substring) {
     }
 
     return 0; //if not found
-}
-
-long long str_to_int(char* str) {
-    unsigned int i = 0;
-    long long output = 0;
-    int sign = 1;
-
-    while (str[i] != '\0' && str[i] != '.') {
-        output *= 10;
-
-        if (i == 0 && str[i] == '-') { //detect negative sign
-            sign = -1;
-        } else {
-            output += (str[i] - 0x30); //remove ASCII offset
-        }
-
-        i++;
-    }
-
-    output *= sign;
-
-    return output;
 }
 
 /* print an int as if it were a fixed-point number */

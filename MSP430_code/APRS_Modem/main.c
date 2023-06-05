@@ -13,6 +13,11 @@ char message[MAX_PACKET];
 struct message msg;
 struct message outgoing_message;
 
+#pragma PERSISTENT(temp_msg) //need this to avoid memory fuckery
+struct message temp_msg = {.num_callsigns = 0,
+                           .payload_len = 0,
+                           .crc = CRC_FAIL};
+
 char* BBS_CALL = "BBS-1";
 
 enum RX_state{RX_START, RX_UNLOCKED, RX_START_FLAG, RX_MESSAGE, RX_END_FLAG, RX_DECODE, RX_RESET};
@@ -132,6 +137,9 @@ enum BBS_state BBS_tick(enum BBS_state state) {
 
     static char temp[128];
     unsigned int i;
+    static char num_temp[4];
+    unsigned int stack_size;
+    unsigned int msg_id;
 
     /* transitions */
     switch (state) {
@@ -219,13 +227,60 @@ enum BBS_state BBS_tick(enum BBS_state state) {
                 strcpy(outgoing_message.payload, temp, MAX_PAYLOAD);
             }
             else if (streq(msg.payload, "!messages", 9)) {
-                strcpy(outgoing_message.payload, "This is a placeholder for !messages", MAX_PAYLOAD);
+                temp[0] = '\0';
+                strcat(temp, "Message IDs stored for you = ");
+
+                stack_size = message_stack_size();
+                for (i = 0; i < stack_size; i++) {
+                    if (streq(peek_message_stack(i).callsigns[0], msg.callsigns[1], 9)) { //if addressed to user
+                        int_to_str(num_temp, i, 2);
+                        strcat(temp, num_temp);
+                        strcat(temp, " ");
+                    }
+                }
+
+                strcpy(outgoing_message.payload, temp, MAX_PAYLOAD);
             }
             else if (streq(msg.payload, "!message", 8)) {
-                strcpy(outgoing_message.payload, "This is a placeholder for !message", MAX_PAYLOAD);
+                temp[0] = '\0';
+                msg_id = str_to_int(&msg.payload[9]);
+
+                stack_size = message_stack_size();
+                if (msg_id >= stack_size) {
+                    strcat(temp, "ERROR: message ID out of range");
+                } else {
+                    enable_FRAM_write(FRAM_WRITE_ENABLE);
+                    temp_msg = peek_message_stack(i);
+                    enable_FRAM_write(FRAM_WRITE_DISABLE);
+
+                    if (streq(temp_msg.callsigns[0], msg.callsigns[1], 9)) {
+                        strcat(temp, temp_msg.payload);
+                    } else {
+                        strcat(temp, "ERROR: message is not addressed to you");
+                    }
+                }
+                strcpy(outgoing_message.payload, temp, MAX_PAYLOAD);
             }
             else if (streq(msg.payload, "!delete", 7)) {
-                strcpy(outgoing_message.payload, "This is a placeholder for !delete", MAX_PAYLOAD);
+                temp[0] = '\0';
+                msg_id = str_to_int(&msg.payload[8]);
+
+                stack_size = message_stack_size();
+                if (msg_id >= stack_size) {
+                    strcat(temp, "ERROR: message ID out of range");
+                } else {
+                    enable_FRAM_write(FRAM_WRITE_ENABLE);
+                    temp_msg = peek_message_stack(i);
+                    enable_FRAM_write(FRAM_WRITE_DISABLE);
+
+                    if (streq(temp_msg.callsigns[0], msg.callsigns[1], 9)) {
+                        pop_message(msg_id);
+                        strcat(temp, "Deleted message");
+                    } else {
+                        strcat(temp, "ERROR: message is not addressed to you");
+                    }
+                }
+                strcpy(outgoing_message.payload, temp, MAX_PAYLOAD);
             }
             else {
                 strcpy(outgoing_message.payload, "Invalid command (send '!help' for list)", MAX_PAYLOAD);
@@ -241,8 +296,6 @@ enum BBS_state BBS_tick(enum BBS_state state) {
 
             strcpy(outgoing_message.payload, "Saved message to be forwarded", MAX_PAYLOAD);
         }
-
-
         break;
     case BBS_TX:
         send_message(&outgoing_message);
@@ -276,7 +329,6 @@ int main(void) {
     enum BBS_state bbs_state = BBS_START;
 
     unsigned long long tick = 0;
-
     init_resistor_DAC();
     init_PTT();
 

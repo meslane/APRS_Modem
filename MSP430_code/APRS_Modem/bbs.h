@@ -7,7 +7,7 @@
 #define CRC_FAIL 1
 
 #define MAX_PAYLOAD 128
-#define MSG_STACK_SIZE 4
+#define MSG_STACK_SIZE 16
 
 struct message {
     char callsigns[8][10];

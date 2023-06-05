@@ -8,7 +8,7 @@
 #ifndef PACKET_H_
 #define PACKET_H_
 
-#define MAX_PACKET 300
+#define MAX_PACKET 256
 
 struct bitstream {
     char* bytes;
