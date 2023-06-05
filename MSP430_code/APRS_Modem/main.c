@@ -9,7 +9,6 @@
 #include <bbs.h>
 
 char message[400];
-char output[400];
 
 struct message msg;
 struct message outgoing_message;
@@ -130,6 +129,10 @@ enum RX_state RX_tick(enum RX_state state) {
 enum BBS_state{BBS_START, BBS_RX, BBS_PROCESS, BBS_TX};
 enum BBS_state BBS_tick(enum BBS_state state) {
     static enum RX_state rx_state = RX_START;
+    char temp[128];
+//    /char num_temp[10];
+    unsigned int i;
+    //unsigned int stack_size;
 
     /* transitions */
     switch (state) {
@@ -145,7 +148,7 @@ enum BBS_state BBS_tick(enum BBS_state state) {
         }
         break;
     case BBS_PROCESS:
-        if (streq(msg.callsigns[0], "BBS-", 4)) { //if message is made out to BBS
+        if (streq(msg.callsigns[0], "BBS-1", 5) || streq(msg.callsigns[2], "BBS-1", 5)) { //if message is made out to BBS or BBS is a repeater
             init_DSP_timer(DSP_TX);
             state = BBS_TX;
         } else {
@@ -172,38 +175,94 @@ enum BBS_state BBS_tick(enum BBS_state state) {
         rx_state = RX_tick(rx_state); //increment RX state machine in RX mode
         break;
     case BBS_PROCESS:
-        strcpy(outgoing_message.callsigns[0], msg.callsigns[1], 10); //move sender to recipient
-        strcpy(outgoing_message.callsigns[1], BBS_CALL, 10);
-        strcpy(outgoing_message.callsigns[2], msg.callsigns[2], 10);
-
-
         /* MAIN BBS work code */
-        if (streq(msg.payload, "!ping", 5)) {
-            strcpy(outgoing_message.payload, "pong!", MAX_PAYLOAD);
-        }
-        else if (streq(msg.payload, "!help", 5)) {
-            strcpy(outgoing_message.payload, "Commands: !ping, !help, !users, !messages, !message, !delete (!about [command] for more info)", MAX_PAYLOAD);
-        }
-        else if (streq(msg.payload, "!about ping", 11)) {
-            strcpy(outgoing_message.payload, "!ping: pings the server, server responds with '!pong' if message was received", MAX_PAYLOAD);
-        }
-        else if (streq(msg.payload, "!about help", 11)) {
-            strcpy(outgoing_message.payload, "!help: lists all commands", MAX_PAYLOAD);
-        }
-        else if (streq(msg.payload, "!about users", 12)) {
-            strcpy(outgoing_message.payload, "!users: lists all users whose messages are currently stored on the server", MAX_PAYLOAD);
-        }
-        else if (streq(msg.payload, "!about messages", 15)) {
-            strcpy(outgoing_message.payload, "!messages: returns the number of stored messages addressed to the user", MAX_PAYLOAD);
-        }
-        else if (streq(msg.payload, "!about message", 14)) {
-            strcpy(outgoing_message.payload, "!message [number]: returns the requested message addressed to the user (if it exists)", MAX_PAYLOAD);
-        }
-        else if (streq(msg.payload, "!about delete", 13)) {
-                    strcpy(outgoing_message.payload, "!delete [number]: deletes the given message addressed to the user (do this after reading, oldest messages are auto-deleted)", MAX_PAYLOAD);
+        if (streq(msg.callsigns[0], "BBS-1", 5)) { //direct commands to the sever
+            strcpy(outgoing_message.callsigns[0], msg.callsigns[1], 10); //move sender to recipient
+            strcpy(outgoing_message.callsigns[1], BBS_CALL, 10);
+            strcpy(outgoing_message.callsigns[2], msg.callsigns[2], 10);
+            outgoing_message.num_callsigns = 3;
+
+            if (streq(msg.payload, "!ping", 5)) {
+                strcpy(outgoing_message.payload, "pong!", MAX_PAYLOAD);
+            }
+            else if (streq(msg.payload, "!help", 5)) {
+                strcpy(outgoing_message.payload, "Commands: !ping, !help, !users, !messages, !message, !delete (!about [command] for more info)", MAX_PAYLOAD);
+            }
+            else if (streq(msg.payload, "!about ping", 11)) {
+                strcpy(outgoing_message.payload, "!ping: pings the server, server responds with '!pong' if message was received", MAX_PAYLOAD);
+            }
+            else if (streq(msg.payload, "!about help", 11)) {
+                strcpy(outgoing_message.payload, "!help: lists all commands", MAX_PAYLOAD);
+            }
+            else if (streq(msg.payload, "!about users", 12)) {
+                strcpy(outgoing_message.payload, "!users: lists all users whose messages are currently stored on the server", MAX_PAYLOAD);
+            }
+            else if (streq(msg.payload, "!about messages", 15)) {
+                strcpy(outgoing_message.payload, "!messages: returns the number of stored messages addressed to the user", MAX_PAYLOAD);
+            }
+            else if (streq(msg.payload, "!about message", 14)) {
+                strcpy(outgoing_message.payload, "!message [number]: returns the requested message addressed to the user (if it exists)", MAX_PAYLOAD);
+            }
+            else if (streq(msg.payload, "!about delete", 13)) {
+                strcpy(outgoing_message.payload, "!delete [number]: deletes the given message addressed to the user (do this after reading, oldest messages are auto-deleted)", MAX_PAYLOAD);
+            }
+            else if (streq(msg.payload, "!users", 6)) {
+                temp[0] = '\0';
+                strcat(temp, "Users:");
+
+                for (i = 0; i < message_stack_size(); i++) {
+                    if (instr(temp, peek_message_stack(i).callsigns[1]) == 0) {
+                        strcat(temp, peek_message_stack(i).callsigns[1]); //append sender
+                        strcat(temp, " "); //append space
+                    }
                 }
-        else {
-            strcpy(outgoing_message.payload, "Invalid command (send '!help' for list)", MAX_PAYLOAD);
+
+                strcpy(outgoing_message.payload, temp, MAX_PAYLOAD);
+            }
+            /*
+            else if (streq(msg.payload, "!messages", 9)) {
+                temp[0] = '\0';
+                strcat(temp, "Message IDs stored for you = ");
+
+                stack_size = message_stack_size();
+                for (i = 0; i < stack_size; i++) {
+                    if (streq(peek_message_stack(i).callsigns[0], msg.callsigns[1], 1)) { //if addressed to user
+                        int_to_str(num_temp, i, 2);
+                        strcat(temp, num_temp);
+                        //peek_message_stack(i).callsigns[0];
+                        //strcat(temp, peek_message_stack(i).callsigns[0]);
+                    }
+                }
+
+                strcpy(outgoing_message.payload, temp, MAX_PAYLOAD);
+            }
+            */
+            else if (streq(msg.payload, "!message", 8)) {
+                temp[0] = '\0';
+                strcat(temp, "This is a placeholder for !message");
+
+                strcpy(outgoing_message.payload, temp, MAX_PAYLOAD);
+            }
+            else if (streq(msg.payload, "!delete", 7)) {
+                temp[0] = '\0';
+                strcat(temp, "This is a placeholder for !delete");
+
+                strcpy(outgoing_message.payload, temp, MAX_PAYLOAD);
+            }
+            else {
+                strcpy(outgoing_message.payload, "Invalid command (send '!help' for list)", MAX_PAYLOAD);
+            }
+
+        }
+        else if (streq(msg.callsigns[2], "BBS-1", 5)) { //forwards to other users
+            push_message(msg);
+
+            strcpy(outgoing_message.callsigns[0], msg.callsigns[1], 10); //move sender to recipient
+            strcpy(outgoing_message.callsigns[1], BBS_CALL, 10);
+            strcpy(outgoing_message.callsigns[2], "\0", 1); //no repeaters
+            outgoing_message.num_callsigns = 2;
+
+            strcpy(outgoing_message.payload, "Saved message to be forwarded", MAX_PAYLOAD);
         }
 
         break;
@@ -240,6 +299,7 @@ int main(void) {
 
     unsigned long long tick = 0;
 
+    init_DSP_timer(DSP_RX); //must be init-d?
     init_resistor_DAC();
     init_PTT();
 
@@ -254,6 +314,26 @@ int main(void) {
         .payload = "Hello world!"
     };
     init_DSP_timer(DSP_TX);
+    */
+
+    /*
+    char test_str[64];
+    strcpy(test_str, "W6NXP", 6);
+    strcat(test_str, " is very cool\n\r");
+
+    putchars(test_str);
+
+    if (instr(test_str, "NXP") == 1) {
+        putchars("In string!\n\r");
+    } else {
+        putchars("Not in string :(\n\r");
+    }
+
+    if (instr(test_str, "NXX") == 1) {
+        putchars("In string!\n\r");
+    } else {
+        putchars("Not in string :(\n\r");
+    }
     */
 
     for(;;) {

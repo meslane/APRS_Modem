@@ -11,6 +11,7 @@
 #include <serial.h>
 #include <dsp.h>
 #include <packet.h>
+#include <gps.h>
 
 enum encoder_dir encoder_state = NONE;
 

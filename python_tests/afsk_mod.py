@@ -21,6 +21,9 @@ import time
 
 import msvcrt
 
+import serial
+import serial.tools.list_ports
+
 #2200 Hz -> 360/12 = 30
 #1200 Hz -> 360/22 = 16.3636
 
@@ -322,7 +325,7 @@ def send_message(source_call, dest_call, repeaters, message):
     print("Transmission complete\n")
 
 #this works if not threaded
-def rx_thread(input_device):
+def rx_thread(input_device, keyer_port):
     source_call = "W6NXP"
     dest_call = "BBS-1"
     repeaters = ["WIDE1-1", "WIDE2-1"]
@@ -578,13 +581,23 @@ def rx_thread(input_device):
                         repeaters.append(repeater)
                         repeater = str((input("Repeater>")))
                 else:
+                    if keyer_port:
+                        keyer_port.write(b'1') #key up
+                    
                     send_message(source_call, dest_call, repeaters, input_str)
+                    
+                    if keyer_port:
+                        keyer_port.write(b'0') #key down
                 
 
 def main():
+    '''
+    Audio Device Setup
+    '''
     info = audio.get_host_api_info_by_index(0)
     numdevices = info.get('deviceCount')
 
+    print("Available Audio Devices:")
     for i in range(0, numdevices):
         if (audio.get_device_info_by_host_api_device_index(0, i).get('maxInputChannels')) > 0:
             print("Input Device id ", i, " - ", audio.get_device_info_by_host_api_device_index(0, i).get('name'))
@@ -592,6 +605,31 @@ def main():
     input_device = int(input("Select input device ID:"))
     print()
     
-    rx_thread(input_device)
+    '''
+    Keyer Setup
+    '''
+    ports = serial.tools.list_ports.comports()
+    
+    print("Available Serial Devices:")
+    for i, (port, desc, hwid) in enumerate(ports):
+        print("{} - {} '{}'".format(i, port, desc))
+    
+    keyer_port_num = input("Select keyer port (or RETURN to skip):")
+    
+    if (keyer_port_num):
+        keyer_port = serial.Serial()
+        keyer_port.port = ports[int(keyer_port_num)][0]
+        
+        keyer_port.open()
+        keyer_port.reset_input_buffer() #flush buffer
+    else:
+        keyer_port = None
+    
+    print()
+    
+    '''
+    Start Main Loop
+    '''
+    rx_thread(input_device, keyer_port)
     
 main()

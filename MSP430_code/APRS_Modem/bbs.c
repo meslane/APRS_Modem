@@ -3,6 +3,13 @@
 #include <packet.h>
 #include <dsp.h>
 #include <serial.h>
+#include <ui.h>
+
+//#pragma PERSISTENT(message_stack)
+struct message message_stack[MSG_STACK_SIZE];
+
+//#pragma PERSISTENT(message_stack_ptr)
+unsigned int message_stack_ptr = 0;
 
 void print_message_packet(struct message* msg) {
     unsigned int i;
@@ -168,12 +175,19 @@ void send_message(struct message* msg) {
     unsigned int pkt_len;
     char packet[400];
 
-    pkt_len = make_AX_25_packet(packet, msg->callsigns[0], msg->callsigns[1], msg->callsigns[2], msg->payload, 64, 32);
+    if (msg->num_callsigns > 2) {
+        pkt_len = make_AX_25_packet(packet, msg->callsigns[0], msg->callsigns[1], msg->callsigns[2], msg->payload, 64, 32);
+    } else {
+        pkt_len = make_AX_25_packet(packet, msg->callsigns[0], msg->callsigns[1], "\0", msg->payload, 64, 32);
+    }
+
     push_packet(&symbol_queue, packet, pkt_len);
 
+    /*
     for (i=0;i<1000000;i++) {
        __no_operation(); //delay
     }
+    */
 
     PTT_on();
     for (i=0;i<20000;i++) {
@@ -191,7 +205,55 @@ void send_message(struct message* msg) {
 
     tx_queue_empty = 0;
 
+    /*
     for (i=0;i<240000;i++) {
        __no_operation(); //delay
     }
+    */
+}
+
+
+void push_message(struct message msg) {
+    //enable_FRAM_write(FRAM_WRITE_ENABLE);
+
+    if (message_stack_ptr >= (MSG_STACK_SIZE - 1)) {
+        pop_message(0); //delete oldest
+    }
+
+    message_stack[message_stack_ptr] = msg;
+    message_stack_ptr++;
+
+    //enable_FRAM_write(FRAM_WRITE_DISABLE);
+}
+
+struct message pop_message(unsigned int index) {
+    unsigned int i;
+    struct message output_message = {
+        .num_callsigns = 0,
+        .payload_len = 0,
+        .crc = CRC_FAIL
+    };
+
+    if (message_stack_ptr > index && message_stack_ptr > 0) { //make sure index is in bounds
+        //enable_FRAM_write(FRAM_WRITE_ENABLE);
+
+        output_message = message_stack[index];
+
+        for (i  = index; i < message_stack_ptr; i++) {
+            message_stack[i] = message_stack[i+1]; //continually shift down
+        }
+        message_stack_ptr--;
+
+        //enable_FRAM_write(FRAM_WRITE_DISABLE);
+    }
+
+    return output_message;
+}
+
+unsigned int message_stack_size(void) {
+    return message_stack_ptr;
+}
+
+struct message peek_message_stack(unsigned int index) {
+    return message_stack[index];
 }

@@ -405,6 +405,66 @@ void strcpy(char* dest, char* src, unsigned int len) {
     }
 }
 
+//append one string to another
+unsigned int strcat(char* dest, char* src) {
+    unsigned int i;
+    unsigned int j;
+
+    i = 0;
+    while (dest[i] != '\0') {
+        i++;
+    }
+
+    j = 0;
+    while (src[j] != '\0') {
+        dest[i] = src[j];
+        j++;
+        i++;
+    }
+
+    dest[i] = '\0';
+    i++;
+
+    return i;
+}
+
+unsigned int strlen(char* string) {
+    unsigned int len = 0;
+
+    while (string[len] != '\0') {
+        len++;
+    }
+
+    return len;
+}
+
+//returns true if substring is in string
+char instr(char* main_string, char* substring) {
+    unsigned int i;
+    unsigned int j;
+
+    unsigned int main_string_len = strlen(main_string);
+    unsigned int substring_len = strlen(substring);
+
+    char match;
+
+    for (i = 0; i < (main_string_len + substring_len); i++) {
+        match = 1;
+        for (j = 0; j < substring_len; j++) {
+            if (main_string[i + j] != substring[j]) {
+                match = 0;
+                break;
+            }
+        }
+
+        if (match == 1) {
+            return 1;
+        }
+    }
+
+    return 0; //if not found
+}
+
 long long str_to_int(char* str) {
     unsigned int i = 0;
     long long output = 0;
