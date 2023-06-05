@@ -20,6 +20,8 @@ struct message temp_msg = {.num_callsigns = 0,
 
 char* BBS_CALL = "BBS-1";
 
+struct TicTacToe ttt_game;
+
 enum RX_state{RX_START, RX_UNLOCKED, RX_START_FLAG, RX_MESSAGE, RX_END_FLAG, RX_DECODE, RX_RESET};
 enum RX_state RX_tick(enum RX_state state) {
     static long flag_queue = 0xFFFFFFFF;
@@ -194,7 +196,7 @@ enum BBS_state BBS_tick(enum BBS_state state) {
                 strcpy(outgoing_message.payload, "pong!", MAX_PAYLOAD);
             }
             else if (streq(msg.payload, "!help", 5)) {
-                strcpy(outgoing_message.payload, "Commands: !ping, !help, !users, !messages, !message, !delete (!about [command] for more info)", MAX_PAYLOAD);
+                strcpy(outgoing_message.payload, "Commands: !ping, !help, !users, !messages, !message, !delete, !ttt (!about [command] for more info)", MAX_PAYLOAD);
             }
             else if (streq(msg.payload, "!about ping", 11)) {
                 strcpy(outgoing_message.payload, "!ping: pings the server, server responds with '!pong' if message was received", MAX_PAYLOAD);
@@ -213,6 +215,9 @@ enum BBS_state BBS_tick(enum BBS_state state) {
             }
             else if (streq(msg.payload, "!about delete", 13)) {
                 strcpy(outgoing_message.payload, "!delete [number]: deletes the given message addressed to the user (do this after reading, oldest messages are auto-deleted)", MAX_PAYLOAD);
+            }
+            else if (streq(msg.payload, "!about tts", 10)) {
+                strcpy(outgoing_message.payload, "!tts [move]: plays the given tic-tac-toe move (assuming move is valid and game is not occupied)", MAX_PAYLOAD);
             }
             else if (streq(msg.payload, "!users", 6)) {
                 temp[0] = '\0';
@@ -292,6 +297,52 @@ enum BBS_state BBS_tick(enum BBS_state state) {
                 }
                 strcpy(outgoing_message.payload, temp, MAX_PAYLOAD);
             }
+            else if (streq(msg.payload, "!ttt", 4)) {
+                temp[0] = '\0';
+
+                if (ttt_game.finished == 1) { //init game
+                    init_board(&ttt_game);
+                }
+
+                if (strlen(msg.payload) >= 7){ //only do game if move, otherwise just peek board
+                    if (ttt_game.P1_call[0] == '\0') { //assign players
+                        strcpy(ttt_game.P1_call, msg.callsigns[1], 10);
+                    }
+                    else if (ttt_game.P2_call[0] == '\0') {
+                        if (streq(ttt_game.P1_call, msg.callsigns[1], 10) == 0) { //don't let players play against themselves
+                            strcpy(ttt_game.P2_call, msg.callsigns[1], 10);
+                        }
+                    }
+
+                    if (ttt_game.player_turn == 1 && streq(ttt_game.P1_call, msg.callsigns[1], 10)) { //player 1 turn
+                        if (process_move(&ttt_game, &msg.payload[5], 1) == 1) {
+                            ttt_game.player_turn = 2;
+                        }
+                        update_game_board(&ttt_game);
+                    } else if (ttt_game.player_turn == 2 && streq(ttt_game.P2_call, msg.callsigns[1], 10)) { //player 2 turn
+                        if (process_move(&ttt_game, &msg.payload[5], 2) == 1) {
+                            ttt_game.player_turn = 1;
+                        }
+                        update_game_board(&ttt_game);
+                    }
+
+
+                }
+
+                strcat(temp, ttt_game.board);
+                strcat(temp, "\nX:");
+                strcat(temp, ttt_game.P1_call);
+                strcat(temp, " O:");
+                strcat(temp, ttt_game.P2_call);
+                strcat(temp, "\nNext:");
+                if (ttt_game.player_turn == 1) {
+                    strcat(temp, "X");
+                } else if (ttt_game.player_turn == 2) {
+                    strcat(temp, "O");
+                }
+
+                strcpy(outgoing_message.payload, temp, MAX_PAYLOAD);
+            }
             else {
                 strcpy(outgoing_message.payload, "Invalid command (send '!help' for list)", MAX_PAYLOAD);
             }
@@ -341,6 +392,8 @@ int main(void) {
     unsigned long long tick = 0;
     init_resistor_DAC();
     init_PTT();
+
+    ttt_game.finished = 1;
 
     putchars("\n\r");
 

@@ -185,11 +185,9 @@ void send_message(struct message* msg) {
 
     push_packet(&symbol_queue, packet, pkt_len);
 
-    /*
-    for (i=0;i<1000000;i++) {
+    for (i=0;i<500000;i++) {
        __no_operation(); //delay
     }
-    */
 
     PTT_on();
     for (i=0;i<20000;i++) {
@@ -207,11 +205,9 @@ void send_message(struct message* msg) {
 
     tx_queue_empty = 0;
 
-    /*
     for (i=0;i<240000;i++) {
        __no_operation(); //delay
     }
-    */
 }
 
 
@@ -258,4 +254,90 @@ unsigned int message_stack_size(void) {
 
 struct message peek_message_stack(unsigned int index) {
     return message_stack[index];
+}
+
+/* tic tac toe */
+void init_board(struct TicTacToe* game) {
+    strcpy(game->board, "\n3 .|.|.\n  -|-|-\n2 .|.|.\n  -|-|-\n1 .|.|.\n\n  A B C\n", 51);
+    game->P1_state = 0;
+    game->P2_state = 0;
+    game->P1_call[0] = '\0';
+    game->P2_call[0] = '\0';
+    game->finished = 0;
+    game->player_turn = 1;
+}
+
+
+//do move, return 1 if valid, 0 if not
+char process_move(struct TicTacToe* game, char* movestring, char player) {
+    unsigned int move = 0x0000;
+
+    //compute move bits
+    switch(movestring[0]) {
+    case 'A':
+        move |= 0x01;
+        break;
+    case 'B':
+        move |= 0x02;
+        break;
+    case 'C':
+        move |= 0x04;
+        break;
+    default:
+        break;
+    }
+
+    switch(movestring[1]) {
+    case '1':
+        break;
+    case '2':
+        move <<= 3;
+        break;
+    case '3':
+        move <<= 6;
+        break;
+    default:
+        break;
+    }
+
+    print_binary(move, 16);
+    putchars("\n\r");
+    print_binary(game->P1_state, 16);
+    putchars("\n\r");
+    print_binary(game->P2_state, 16);
+    putchars("\n\r");
+
+    if (((game->P1_state & move) != move)  && ((game->P2_state & move) != move) && (game->player_turn == player)) { //if tile is not occupied and it is player's turn
+        switch (player) {
+        case 1:
+            game->P1_state |= move;
+            break;
+        case 2:
+            game->P2_state |= move;
+            break;
+        default:
+            break;
+        }
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+void update_game_board(struct TicTacToe* game) {
+    unsigned int i;
+    const unsigned char board_indices[9] = {35, 37, 39, 19, 21, 23, 3, 5, 7};
+
+    for (i = 0; i < 9; i++) {
+        if ((game->P1_state >> i) & 0x01) {
+            game->board[board_indices[i]] = 'X';
+        }
+        else if ((game->P2_state >> i) & 0x01) {
+            game->board[board_indices[i]] = 'O';
+        }
+    }
+}
+
+char detect_end_condition(struct TicTacToe* game) {
+    return 0; //TODO
 }

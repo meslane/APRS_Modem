@@ -329,6 +329,8 @@ def rx_thread(input_device, keyer_port):
     source_call = "W6NXP"
     dest_call = "BBS-1"
     repeaters = ["WIDE1-1", "WIDE2-1"]
+    
+    display_format = "inline" #options = 'inline', 'full'
 
     sample_rate = 9600
     
@@ -544,20 +546,35 @@ def rx_thread(input_device, keyer_port):
                     
                     call_index += 1
                     message_string += '|'
+                    
                 
-                #get rest of message but avoid CRC or flags
-                message_string += message_bytes[(call_index * 7) + 2: -2].decode('utf-8', errors='replace')
-                message_string = message_string.replace('\r', "\\r").replace('\n',"\\n").replace('\b',"\\b").replace('\t',"\\t") #replace escape chars
+                #message printing
+                if (display_format == 'inline'):
+                    #get rest of message but avoid CRC or flags
+                    message_string += message_bytes[(call_index * 7) + 2: -2].decode('utf-8', errors='replace')
+                    message_string = message_string.replace('\r', "\\r").replace('\n',"\\n").replace('\b',"\\b").replace('\t',"\\t") #replace escape chars
+                    
+                    print("[{}]".format(timestring))
+                    print("Got Packet (Calculated CRC = {}, Message CRC = {})".format(hex(crc), hex(packet_crc)))
+                    print(message_string, end='|')
+                    
+                    if (crc == packet_crc):
+                        print("CRC PASSED")
+                    else:
+                        print("CRC FAILED")
+                    print()
+                elif (display_format == 'full'):
+                    print("[{}]".format(timestring))
+                    print("Got Packet (Calculated CRC = {}, Message CRC = {})".format(hex(crc), hex(packet_crc)))
+                    print(message_string, end='')
                 
-                print("[{}]".format(timestring))
-                print("Got Packet (Calculated CRC = {}, Message CRC = {})".format(hex(crc), hex(packet_crc)))
-                print(message_string, end='|')
-                
-                if (crc == packet_crc):
-                    print("CRC PASSED")
-                else:
-                    print("CRC FAILED")
-                print()
+                    if (crc == packet_crc):
+                        print("CRC PASSED")
+                    else:
+                        print("CRC FAILED")
+                        
+                    print(message_bytes[(call_index * 7) + 2: -2].decode('utf-8', errors='replace'))
+                    
                 
             elif (dsp_state == 'RX_RESET'):
                 message.clear()
@@ -568,10 +585,12 @@ def rx_thread(input_device, keyer_port):
             elif (dsp_state == 'SEND_MESSAGE'):
                 input_str = str(input(">"))
                 
-                if (input_str == "\srccall"):
-                    source_call = str((input("Input new sender callsign:")))
-                elif (input_str == "\destcall"):
-                    dest_call = str((input("Input new destination callsign:")))
+                if (input_str[0:8] == "\srccall"):
+                    source_call = input_str[9:] #str((input("Input new sender callsign:")))
+                    print("Set source callsign to {}".format(source_call))
+                elif (input_str[0:9] == "\destcall"):
+                    dest_call = input_str[10:] #str((input("Input new sender callsign:")))
+                    print("Set destination callsign to {}".format(dest_call))
                 elif (input_str == "\\repeaters"):
                     print("Input repeaters sequentially, enter RETURN to exit")
                     repeaters = []
@@ -580,6 +599,9 @@ def rx_thread(input_device, keyer_port):
                     while repeater:
                         repeaters.append(repeater)
                         repeater = str((input("Repeater>")))
+                elif (input_str[0:7] == "\\format"):
+                    display_format = input_str[8:]
+                    print("Set display format to {}".format(display_format))
                 else:
                     if keyer_port:
                         keyer_port.write(b'1') #key up
