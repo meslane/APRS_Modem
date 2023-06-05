@@ -8,6 +8,8 @@
 #ifndef PACKET_H_
 #define PACKET_H_
 
+#define MAX_PACKET 300
+
 struct bitstream {
     char* bytes;
     unsigned int byte_pointer;

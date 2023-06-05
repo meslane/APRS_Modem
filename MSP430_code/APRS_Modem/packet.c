@@ -410,8 +410,8 @@ unsigned int make_AX_25_packet(char* output, char* dest, char* src, char* digipe
     unsigned int len;
     unsigned int crc;
 
-    char bits_array[400] = {0};
-    char bits_array2[400] = {0};
+    char bits_array[MAX_PACKET] = {0};
+    char bits_array2[MAX_PACKET] = {0};
 
     struct bitstream bits = {
                              .bytes = bits_array,
@@ -455,10 +455,10 @@ unsigned int demod_AX_25_packet(char* output, char* NRZI_bytes, unsigned int len
     char last;
     unsigned char number;
 
-    char bits_array[400] = {0};
-    char bits_array2[400] = {0};
+    char bits_array[MAX_PACKET] = {0};
+    char bits_array2[MAX_PACKET] = {0};
 
-    char temp[400];
+    char temp[MAX_PACKET];
 
     unsigned int crc;
     unsigned int packet_crc;

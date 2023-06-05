@@ -264,8 +264,8 @@ def send_message(source_call, dest_call, repeaters, message):
     packet_bits = stuff_bits(packet_bits)
     packet_bits = NRZ_to_NRZI(packet_bits)
     
-    if (len(packet_bits) / 8 > 400):
-        print("WARNING: message is too long: len = {}, max = 400".format(len(packet_bits) / 8))
+    if (len(packet_bits) / 8 > 300):
+        print("WARNING: message is too long: len = {}, max = 300".format(len(packet_bits) / 8))
     
     packet_bits = add_flags(packet_bits, 32, 32)
 

@@ -5,10 +5,12 @@
 #include <serial.h>
 #include <ui.h>
 
-//#pragma PERSISTENT(message_stack)
-struct message message_stack[MSG_STACK_SIZE];
+#pragma PERSISTENT(message_stack)
+struct message message_stack[MSG_STACK_SIZE] = {{.num_callsigns = 0,
+                                                 .payload_len = 0,
+                                                 .crc = CRC_FAIL}};
 
-//#pragma PERSISTENT(message_stack_ptr)
+#pragma PERSISTENT(message_stack_ptr)
 unsigned int message_stack_ptr = 0;
 
 void print_message_packet(struct message* msg) {
@@ -214,7 +216,7 @@ void send_message(struct message* msg) {
 
 
 void push_message(struct message msg) {
-    //enable_FRAM_write(FRAM_WRITE_ENABLE);
+    enable_FRAM_write(FRAM_WRITE_ENABLE);
 
     if (message_stack_ptr >= (MSG_STACK_SIZE - 1)) {
         pop_message(0); //delete oldest
@@ -223,7 +225,7 @@ void push_message(struct message msg) {
     message_stack[message_stack_ptr] = msg;
     message_stack_ptr++;
 
-    //enable_FRAM_write(FRAM_WRITE_DISABLE);
+    enable_FRAM_write(FRAM_WRITE_DISABLE);
 }
 
 struct message pop_message(unsigned int index) {
@@ -235,7 +237,7 @@ struct message pop_message(unsigned int index) {
     };
 
     if (message_stack_ptr > index && message_stack_ptr > 0) { //make sure index is in bounds
-        //enable_FRAM_write(FRAM_WRITE_ENABLE);
+        enable_FRAM_write(FRAM_WRITE_ENABLE);
 
         output_message = message_stack[index];
 
@@ -244,7 +246,7 @@ struct message pop_message(unsigned int index) {
         }
         message_stack_ptr--;
 
-        //enable_FRAM_write(FRAM_WRITE_DISABLE);
+        enable_FRAM_write(FRAM_WRITE_DISABLE);
     }
 
     return output_message;

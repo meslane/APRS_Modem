@@ -8,7 +8,7 @@
 #include <ui.h>
 #include <bbs.h>
 
-char message[400];
+char message[MAX_PACKET];
 
 struct message msg;
 struct message outgoing_message;
@@ -49,7 +49,7 @@ enum RX_state RX_tick(enum RX_state state) {
 
             state = RX_END_FLAG;
             putchars("END\n\r");
-        } else if (message_index >= 400 || (bit_index == 0 && byte == 0x00)) { //if overflow message buffer or bad packet data
+        } else if (message_index >= MAX_PACKET || (bit_index == 0 && byte == 0x00)) { //if overflow message buffer or bad packet data
             state = RX_RESET;
             putchars("FAILED\n\r");
         }
@@ -129,10 +129,9 @@ enum RX_state RX_tick(enum RX_state state) {
 enum BBS_state{BBS_START, BBS_RX, BBS_PROCESS, BBS_TX};
 enum BBS_state BBS_tick(enum BBS_state state) {
     static enum RX_state rx_state = RX_START;
-    char temp[128];
-//    /char num_temp[10];
+
+    static char temp[128];
     unsigned int i;
-    //unsigned int stack_size;
 
     /* transitions */
     switch (state) {
@@ -219,40 +218,18 @@ enum BBS_state BBS_tick(enum BBS_state state) {
 
                 strcpy(outgoing_message.payload, temp, MAX_PAYLOAD);
             }
-            /*
             else if (streq(msg.payload, "!messages", 9)) {
-                temp[0] = '\0';
-                strcat(temp, "Message IDs stored for you = ");
-
-                stack_size = message_stack_size();
-                for (i = 0; i < stack_size; i++) {
-                    if (streq(peek_message_stack(i).callsigns[0], msg.callsigns[1], 1)) { //if addressed to user
-                        int_to_str(num_temp, i, 2);
-                        strcat(temp, num_temp);
-                        //peek_message_stack(i).callsigns[0];
-                        //strcat(temp, peek_message_stack(i).callsigns[0]);
-                    }
-                }
-
-                strcpy(outgoing_message.payload, temp, MAX_PAYLOAD);
+                strcpy(outgoing_message.payload, "This is a placeholder for !messages", MAX_PAYLOAD);
             }
-            */
             else if (streq(msg.payload, "!message", 8)) {
-                temp[0] = '\0';
-                strcat(temp, "This is a placeholder for !message");
-
-                strcpy(outgoing_message.payload, temp, MAX_PAYLOAD);
+                strcpy(outgoing_message.payload, "This is a placeholder for !message", MAX_PAYLOAD);
             }
             else if (streq(msg.payload, "!delete", 7)) {
-                temp[0] = '\0';
-                strcat(temp, "This is a placeholder for !delete");
-
-                strcpy(outgoing_message.payload, temp, MAX_PAYLOAD);
+                strcpy(outgoing_message.payload, "This is a placeholder for !delete", MAX_PAYLOAD);
             }
             else {
                 strcpy(outgoing_message.payload, "Invalid command (send '!help' for list)", MAX_PAYLOAD);
             }
-
         }
         else if (streq(msg.callsigns[2], "BBS-1", 5)) { //forwards to other users
             push_message(msg);
@@ -264,6 +241,7 @@ enum BBS_state BBS_tick(enum BBS_state state) {
 
             strcpy(outgoing_message.payload, "Saved message to be forwarded", MAX_PAYLOAD);
         }
+
 
         break;
     case BBS_TX:
@@ -277,7 +255,7 @@ enum BBS_state BBS_tick(enum BBS_state state) {
 }
 
 int main(void) {
-    WDTCTL = WDTPW | WDTHOLD;	//stop watchdog timer
+    WDTCTL = WDTPW | WDTHOLD;   //stop watchdog timer
     PM5CTL0 &= ~LOCKLPM5; //disable high-impedance GPIO mode
     __bis_SR_register(GIE); //enable interrupts
 
@@ -299,47 +277,14 @@ int main(void) {
 
     unsigned long long tick = 0;
 
-    init_DSP_timer(DSP_RX); //must be init-d?
     init_resistor_DAC();
     init_PTT();
 
     putchars("\n\r");
 
-    /*
-    struct message m = {
-        .callsigns[0] = "W6NXP",
-        .callsigns[1] = "BBS-1",
-        .callsigns[2] = "WIDE1-1",
-        .num_callsigns = 3,
-        .payload = "Hello world!"
-    };
-    init_DSP_timer(DSP_TX);
-    */
-
-    /*
-    char test_str[64];
-    strcpy(test_str, "W6NXP", 6);
-    strcat(test_str, " is very cool\n\r");
-
-    putchars(test_str);
-
-    if (instr(test_str, "NXP") == 1) {
-        putchars("In string!\n\r");
-    } else {
-        putchars("Not in string :(\n\r");
-    }
-
-    if (instr(test_str, "NXX") == 1) {
-        putchars("In string!\n\r");
-    } else {
-        putchars("Not in string :(\n\r");
-    }
-    */
 
     for(;;) {
         bbs_state = BBS_tick(bbs_state);
-        //send_message(&m);
-
         tick++;
     }
 
