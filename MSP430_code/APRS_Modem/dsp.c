@@ -136,10 +136,10 @@ __interrupt void TIMER1_B0_VECTOR_ISR (void) {
         //comparator
         if (LPF_out < 0) {
             comp_out = 1;
-            //P1OUT |= 0x02; //P1.1 for test only
+            P1OUT |= 0x02; //P1.1 for test only
         } else {
             comp_out = 0;
-            //P1OUT &= ~0x02;
+            P1OUT &= ~0x02;
         }
 
         //PLL

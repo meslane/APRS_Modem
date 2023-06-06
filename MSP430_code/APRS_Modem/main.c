@@ -86,7 +86,7 @@ enum RX_state RX_tick(enum RX_state state) {
     /* actions */
     switch(state) {
     case RX_UNLOCKED:
-        P1OUT &= ~(0x01 << 2); //DEBUG
+        //P1OUT &= ~(0x01 << 2); //DEBUG
 
         if (rx_ready == 1) { //if PLL has triggered a bit sample
             rx_ready = 0;
@@ -97,7 +97,7 @@ enum RX_state RX_tick(enum RX_state state) {
     case RX_START_FLAG:
     case RX_MESSAGE:
     case RX_END_FLAG:
-        P1OUT |= (0x01 << 2); //DEBUG
+        //P1OUT |= (0x01 << 2); //DEBUG
 
         if (rx_ready == 1) { //if PLL has triggered a bit sample
             rx_ready = 0;
@@ -119,7 +119,7 @@ enum RX_state RX_tick(enum RX_state state) {
         }
         break;
     case RX_DECODE:
-        P1OUT |= (0x01 << 2); //DEBUG
+        //P1OUT |= (0x01 << 2); //DEBUG
 
         enable_FRAM_write(FRAM_WRITE_ENABLE);
         msg = demod_AX_25_packet_to_msg(message, message_index);
@@ -127,7 +127,7 @@ enum RX_state RX_tick(enum RX_state state) {
         print_message_packet(&msg);
         break;
     case RX_RESET:
-        P1OUT |= (0x01 << 2); //DEBUG
+        //P1OUT |= (0x01 << 2); //DEBUG
 
         message_index = 0; //reset for next pass
         bit_index = 0;
