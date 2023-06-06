@@ -300,13 +300,6 @@ char process_move(struct TicTacToe* game, char* movestring, char player) {
         break;
     }
 
-    print_binary(move, 16);
-    putchars("\n\r");
-    print_binary(game->P1_state, 16);
-    putchars("\n\r");
-    print_binary(game->P2_state, 16);
-    putchars("\n\r");
-
     if (((game->P1_state & move) != move)  && ((game->P2_state & move) != move) && (game->player_turn == player)) { //if tile is not occupied and it is player's turn
         switch (player) {
         case 1:
@@ -338,6 +331,23 @@ void update_game_board(struct TicTacToe* game) {
     }
 }
 
+//0 = ongoing, 1 = P1 wins, 2 = P2 wins, 3 = cats game
 char detect_end_condition(struct TicTacToe* game) {
+    unsigned int i;
+    const unsigned int win_states[8] = {0b000000111, 0b000111000, 0b111000000, 0b001001001, 0b010010010, 0b100100100, 0b100010001, 0b001010100};
+
+    for (i = 0; i < 8; i++) {
+        if ((game->P1_state & win_states[i]) == win_states[i]) { //P1 wins
+            return 1;
+        }
+        else if ((game->P2_state & win_states[i]) == win_states[i]) { //P2 wins
+            return 2;
+        }
+    }
+
+    if ((game->P1_state | game->P2_state) == 0x1FF) { //if board is full
+        return 3;
+    }
+
     return 0; //TODO
 }

@@ -10,7 +10,12 @@
 
 char message[MAX_PACKET];
 
-struct message msg;
+#pragma PERSISTENT(msg)
+struct message msg = {.num_callsigns = 0,
+                     .payload_len = 0,
+                     .crc = CRC_FAIL};
+
+
 struct message outgoing_message;
 
 #pragma PERSISTENT(temp_msg) //need this to avoid memory fuckery
@@ -116,7 +121,9 @@ enum RX_state RX_tick(enum RX_state state) {
     case RX_DECODE:
         P1OUT |= (0x01 << 2); //DEBUG
 
+        enable_FRAM_write(FRAM_WRITE_ENABLE);
         msg = demod_AX_25_packet_to_msg(message, message_index);
+        enable_FRAM_write(FRAM_WRITE_DISABLE);
         print_message_packet(&msg);
         break;
     case RX_RESET:
@@ -143,6 +150,7 @@ enum BBS_state BBS_tick(enum BBS_state state) {
     static char num_temp[4];
     unsigned int stack_size;
     unsigned int msg_id;
+    char game_state;
 
     /* transitions */
     switch (state) {
@@ -304,7 +312,7 @@ enum BBS_state BBS_tick(enum BBS_state state) {
                     init_board(&ttt_game);
                 }
 
-                if (strlen(msg.payload) >= 7){ //only do game if move, otherwise just peek board
+                if (strlen(msg.payload) >= 7) { //only do game if move, otherwise just peek board
                     if (ttt_game.P1_call[0] == '\0') { //assign players
                         strcpy(ttt_game.P1_call, msg.callsigns[1], 10);
                     }
@@ -325,8 +333,6 @@ enum BBS_state BBS_tick(enum BBS_state state) {
                         }
                         update_game_board(&ttt_game);
                     }
-
-
                 }
 
                 strcat(temp, ttt_game.board);
@@ -339,6 +345,41 @@ enum BBS_state BBS_tick(enum BBS_state state) {
                     strcat(temp, "X");
                 } else if (ttt_game.player_turn == 2) {
                     strcat(temp, "O");
+                }
+
+
+                game_state = detect_end_condition(&ttt_game);
+                if (game_state != 0) {
+                    strcat(temp, "\n");
+
+                    if (game_state == 1) {
+                        strcat(temp, ttt_game.P1_call);
+                        strcat(temp, " wins!");
+                    } else if (game_state == 2) {
+                        strcat(temp, ttt_game.P2_call);
+                        strcat(temp, " wins!");
+                    } else {
+                        strcat(temp, "Tie game");
+                    }
+
+                    /*
+                    switch (game_state) { //THIS CODE CAUSES PROBLEMS, DON'T REALLY KNOW WHY
+                    case 1:
+                        strcat(temp, ttt_game.P1_call);
+                        strcat(temp, " wins!");
+                        break;
+                    case 2:
+                        strcat(temp, ttt_game.P2_call);
+                        strcat(temp, " wins!");
+                        break;
+                    case 3:
+                        strcat(temp, "Tie game");
+                        break;
+                    default:
+                        break;
+                    }
+                    */
+                    ttt_game.finished = 1;
                 }
 
                 strcpy(outgoing_message.payload, temp, MAX_PAYLOAD);
