@@ -151,6 +151,7 @@ enum BBS_state BBS_tick(enum BBS_state state) {
     unsigned int stack_size;
     unsigned int msg_id;
     char game_state;
+    static char substring[12];
 
     /* transitions */
     switch (state) {
@@ -224,15 +225,18 @@ enum BBS_state BBS_tick(enum BBS_state state) {
             else if (streq(msg.payload, "!about delete", 13)) {
                 strcpy(outgoing_message.payload, "!delete [number]: deletes the given message addressed to the user (do this after reading, oldest messages are auto-deleted)", MAX_PAYLOAD);
             }
-            else if (streq(msg.payload, "!about tts", 10)) {
-                strcpy(outgoing_message.payload, "!tts [move]: plays the given tic-tac-toe move (assuming move is valid and game is not occupied)", MAX_PAYLOAD);
+            else if (streq(msg.payload, "!about ttt", 10)) {
+                strcpy(outgoing_message.payload, "!ttt [move]: plays the given tic-tac-toe move (assuming move is valid and game is not occupied)", MAX_PAYLOAD);
             }
             else if (streq(msg.payload, "!users", 6)) {
                 temp[0] = '\0';
                 strcat(temp, "Users:");
 
                 for (i = 0; i < message_stack_size(); i++) {
-                    if (instr(temp, peek_message_stack(i).callsigns[1]) == 0) {
+                    strcpy(substring, peek_message_stack(i).callsigns[1], 10);
+                    strcat(substring, " "); //must append space to avoid false positives
+
+                    if (instr(temp, substring) == 0) {
                         strcat(temp, peek_message_stack(i).callsigns[1]); //append sender
                         strcat(temp, " "); //append space
                     }
@@ -362,23 +366,6 @@ enum BBS_state BBS_tick(enum BBS_state state) {
                         strcat(temp, "Tie game");
                     }
 
-                    /*
-                    switch (game_state) { //THIS CODE CAUSES PROBLEMS, DON'T REALLY KNOW WHY
-                    case 1:
-                        strcat(temp, ttt_game.P1_call);
-                        strcat(temp, " wins!");
-                        break;
-                    case 2:
-                        strcat(temp, ttt_game.P2_call);
-                        strcat(temp, " wins!");
-                        break;
-                    case 3:
-                        strcat(temp, "Tie game");
-                        break;
-                    default:
-                        break;
-                    }
-                    */
                     ttt_game.finished = 1;
                 }
 
@@ -437,7 +424,6 @@ int main(void) {
     ttt_game.finished = 1;
 
     putchars("\n\r");
-
 
     for(;;) {
         bbs_state = BBS_tick(bbs_state);

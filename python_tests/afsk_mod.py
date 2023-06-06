@@ -322,7 +322,7 @@ def send_message(source_call, dest_call, repeaters, message):
     wave_output.close()
 
     winsound.PlaySound('temp.wav', winsound.SND_FILENAME) #play file we just created
-    print("Transmission complete\n")
+    print("Transmission complete")
 
 #this works if not threaded
 def rx_thread(input_device, keyer_port):
@@ -562,7 +562,6 @@ def rx_thread(input_device, keyer_port):
                         print("CRC PASSED")
                     else:
                         print("CRC FAILED")
-                    print()
                 elif (display_format == 'full'):
                     print("[{}]".format(timestring))
                     print("Got Packet (Calculated CRC = {}, Message CRC = {})".format(hex(crc), hex(packet_crc)))
@@ -574,7 +573,7 @@ def rx_thread(input_device, keyer_port):
                         print("CRC FAILED")
                         
                     print(message_bytes[(call_index * 7) + 2: -2].decode('utf-8', errors='replace'))
-                    
+                print()
                 
             elif (dsp_state == 'RX_RESET'):
                 message.clear()
@@ -610,6 +609,7 @@ def rx_thread(input_device, keyer_port):
                     
                     if keyer_port:
                         keyer_port.write(b'0') #key down
+                print()
                 
 
 def main():
