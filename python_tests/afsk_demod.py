@@ -120,6 +120,7 @@ bits = []
 message = []
 offset = []
 count = []
+lowpass = []
 
 for i in range(len(data)):
     data[i] += (2 ** 15) #add fake DC offset
@@ -150,6 +151,8 @@ for sample in data:
     Mixer and delay line
     '''
     mixer_out = bp_output * delay_queue[-1]
+    
+    intermed.append(mixer_out)
 
     delay_queue.insert(0, bp_output) #insert new values
     delay_queue.pop()
@@ -159,7 +162,7 @@ for sample in data:
     '''
     lp_output = lp_filter.filter(mixer_out)
     
-    intermed.append(lp_output)
+    lowpass.append(lp_output)
     
     '''
     Comparator
@@ -230,10 +233,12 @@ for sample in data:
 #print(bits)
 print([hex(x) for x in message])
 
-plt.plot(indices, input, label='Input')
+#plt.plot(indices, input, label='Input')
 plt.plot(indices, intermed, label='Mixer output')
+plt.plot(indices, lowpass, label='LPF output')
 plt.plot(indices, output, label='Comparator output')
-plt.plot(indices, clk, label='Sample clock')
+plt.plot(indices, clk, label='PLL clock')
 plt.plot(indices, count, label='PLL count')
+
 plt.legend()
 plt.show()
